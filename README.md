@@ -3,7 +3,7 @@ A script to turn your Fusion360 design history into an animation.  When run, thi
 
 
 
-WARNING - THIS SCRIPT WILL MAKE CHANGES TO YOUR DESIGN FILE.  I recommended running this script on the copy of your design so that you don't accidently modify your file.  At the very least, do not save the changes to your file - they involve unlinking references to external components and are purely for better control over the animation transitions - you probably do not want these changes.
+**WARNING - THIS SCRIPT WILL MAKE CHANGES TO YOUR DESIGN FILE.**  I recommended running this script on the copy of your design so that you don't accidently modify your file.  At the very least, do not save the changes to your file - they involve unlinking references to external components and are purely for better control over the animation transitions - you probably do not want these changes.
 
 ## Installation
 
