@@ -1,5 +1,9 @@
 # Fusion360-Design-History-Animation
-A script to turn your Fusion360 design history into an animation.  When run, this script rolls your Design history timeline back to the beginning and saves out screenshots as it steps through each operation in your design.  For many operations (e.g. Extrudes, Revolves), it create a smooth animation by interpolating the operation across a range of values.  You can optionally add spin to the animation and change various other parameters via a small panel:
+A script to turn your Fusion360 design history into an animation.  When run, this script rolls your Design history timeline back to the beginning and saves out screenshots as it steps through each operation in your design.  For many operations (e.g. Extrudes, Revolves), it create a smooth animation by interpolating the operation across a range of values.
+
+![Animation Example](/docs/animation.png)
+
+You can optionally add spin to the animation and change various other parameters via a small panel:
 
 ![Plugin Panel](/docs/panel.png)
 
@@ -31,19 +35,20 @@ You should now see it added to your scripts.  To Run the script, select it and p
 
 ## Creating an Animation Video
 
-After all the still frames are generated, I use [ffmpeg](https://ffmpeg.org/) to compile the stills into an animation.  From the terminal run:
+After all the still frames (with the name FILENAME_###.png) are generated, I use [ffmpeg](https://ffmpeg.org/) to compile the stills into an animation.  From the terminal run:
 
 ```ffmpeg -r 30 -i PATH_TO_FRAMES/FILENAME_%d.png OUTPUT_DIRECTORY/animation.mp4```
-
-So for frames with the name my_design_##.png you would use:
-
-```ffmpeg -r 30 -i PATH_TO_FRAMES/my_design_%d.png OUTPUT_DIRECTORY/animation.mp4```
 
 The `-r 30` sets the framerate to 30 fps.
 
 If your filename has spaces in it, you can escape them like so:
 
 ```ffmpeg -r 30 -i PATH_TO_FRAMES/filename\ with\ spaces_%d.png OUTPUT_DIRECTORY/animation.mp4```
+
+
+## Creating an Animated GIF
+
+I upload the resulting video or raw frames to [ezgif](https://ezgif.com/) to create an animated gif.  I'm sure many other solutions exist.
 
 
 ## Development

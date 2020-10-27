@@ -104,7 +104,7 @@ class HistoryTimelapse:
 
         # Set initial values.
         self._filename = dataFile.name
-        self._outputPath = os.path.expanduser("~/Desktop")
+        self._outputPath = os.path.expanduser("~/Desktop/")
         self._timeline = design.timeline
         self._width = 2000
         self._height = 2000
@@ -253,13 +253,14 @@ class HistoryTimelapse:
                 # Some operations should be ignored as they can't be easily animated.
                 # TODO: feature handling list is not exhaustive, just what I frequently use.
                 if classname == 'Occurrence':
-                    # We only allow a fade in for Occurrence if this is the first item inserted into the design.
-                    if i > 0:
-                        continue
-                    # And if insert operation not immediately folled by a joint.
-                    nextItem = type(timeline.item(i + 1).entity).__name__
-                    if nextItem == 'Joint':
-                        continue
+                    continue
+                    # # We only allow a fade in for Occurrence if this is the first item inserted into the design.
+                    # if i > 0:
+                    #     continue
+                    # # And if insert operation not immediately folled by a joint.
+                    # nextItem = type(timeline.item(i + 1).entity).__name__
+                    # if nextItem == 'Joint':
+                    #     continue
                 # If item is sketch, ignore.
                 if classname == 'Sketch':
                     continue
