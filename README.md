@@ -3,7 +3,7 @@ A script to turn your Fusion360 design history timeline into an animation.  When
 
 ![Animation Example](/docs/animation.gif)
 
-You can optionally add spin to the animation and change various other parameters via a small panel:
+This script can be configured to save at any image resolution!  You can optionally add spin to the animation and change various other parameters via a small panel:
 
 ![Plugin Panel](/docs/panel.png)
 
