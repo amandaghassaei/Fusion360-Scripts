@@ -83,8 +83,8 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # File params.
             inputs.addStringValueInput('filename', 'Filename', timelapse.filename)
             inputs.addStringValueInput('outputPath', 'Output Path', timelapse.outputPath)
-            inputs.addIntegerSpinnerCommandInput('width', 'Image Width', 1, 1000000, 1, timelapse.width)
-            inputs.addIntegerSpinnerCommandInput('height', 'Image Height', 1, 1000000, 1, timelapse.height)
+            inputs.addIntegerSpinnerCommandInput('width', 'Image Width (px)', 1, 1000000, 1, timelapse.width)
+            inputs.addIntegerSpinnerCommandInput('height', 'Image Height (px)', 1, 1000000, 1, timelapse.height)
             # Animation params.
             inputs.addIntegerSliderCommandInput('range', 'Timeline Range', 1, timelapse.timeline.count, True)
             inputs.itemById('range').valueOne = timelapse.start
