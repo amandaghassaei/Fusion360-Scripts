@@ -1,7 +1,7 @@
 #Author-Amanda Ghassaei
 #Description-Generate screenshots of your Fusion360 version history
 
-import adsk.core, adsk.fusion, traceback, math
+import adsk.core, adsk.fusion, traceback, math, os
 
 app = adsk.core.Application.get()
 if app:
@@ -104,7 +104,7 @@ class HistoryTimelapse:
 
         # Set initial values.
         self._filename = dataFile.name
-        self._outputPath = '/Users/amandaghassaei/Desktop/'
+        self._outputPath = os.path.expanduser("~/Desktop")
         self._timeline = design.timeline
         self._width = 2000
         self._height = 2000
