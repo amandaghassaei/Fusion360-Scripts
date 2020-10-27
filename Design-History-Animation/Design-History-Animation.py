@@ -1,5 +1,5 @@
 #Author-Amanda Ghassaei
-#Description-Generate screenshots of your Fusion360 version history
+#Description-Turn your Fusion360 design history timeline into an animation
 
 import adsk.core, adsk.fusion, traceback, math, os
 

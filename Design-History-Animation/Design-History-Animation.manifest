@@ -3,7 +3,7 @@
 	"type":	"script",
 	"author":	"Amanda Ghassaei",
 	"description":	{
-		"":	"Turn your Fusion360 design history into an animation"
+		"":	"Turn your Fusion360 design history timeline into an animation"
 	},
 	"supportedOS":	"windows|mac",
 	"editEnabled":	true
