@@ -83,16 +83,16 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # File params.
             inputs.addStringValueInput('filename', 'Filename', timelapse.filename)
             inputs.addStringValueInput('outputPath', 'Output Path', timelapse.outputPath)
-            inputs.addValueInput('width', 'Image Width',  timelapse.width)
-            inputs.addValueInput('height', 'Image Height', timelapse.width)
+            inputs.addIntegerSpinnerCommandInput('width', 'Image Width', 1, 1000000, 1, timelapse.width)
+            inputs.addIntegerSpinnerCommandInput('height', 'Image Height', 1, 1000000, 1, timelapse.height)
             # Animation params.
             inputs.addIntegerSliderCommandInput('range', 'Timeline Range', 1, timelapse.timeline.count, True)
             inputs.itemById('range').valueOne = timelapse.start
             inputs.itemById('range').valueTwo = timelapse.end
-            inputs.addValueInput('interpolationFrames', 'Num Frames per Operation', timelapse.interpolationFrames)
-            inputs.addBoolValue('rotate', 'Should Rotate Design', timelapse.rotate)
-            inputs.addValueInput('framesPerRotation', 'Frames Per Rotation', timelapse.framesPerRotation)
-            inputs.addValueInput('finalFrames', 'Num Final Frames', timelapse.finalFrames)
+            inputs.addIntegerSpinnerCommandInput('interpolationFrames', 'Frames per Operation', 1, 100000, 1, timelapse.interpolationFrames)
+            inputs.addBoolValueInput('rotate', 'Should Rotate Design', True, '', timelapse.rotate)
+            inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 1, 100000, 1, timelapse.framesPerRotation)
+            inputs.addIntegerSpinnerCommandInput('finalFrames', 'Num Final Frames', 0, 100000, 1, timelapse.finalFrames)
 
         except:
             if ui:
@@ -110,10 +110,10 @@ class HistoryTimelapse:
         self._height = 2000
         self._start = 1
         self._end = self._timeline.markerPosition
-        self._interpolationFrames = 10
+        self._interpolationFrames = 5
         self._rotate = True
         self._framesPerRotation = 500
-        self._finalFrames = self._framesPerRotation
+        self._finalFrames = 0
         self._design = design
 
     # Properties.
@@ -140,8 +140,6 @@ class HistoryTimelapse:
         return self._width
     @width.setter
     def width(self, value):
-        if value < 1:
-            value = 1
         self._width = value
 
     @property
@@ -149,8 +147,6 @@ class HistoryTimelapse:
         return self._height
     @height.setter
     def height(self, value):
-        if value < 1:
-            value = 1
         self._height = value
 
     @property
@@ -172,8 +168,6 @@ class HistoryTimelapse:
         return self._interpolationFrames
     @interpolationFrames.setter
     def interpolationFrames(self, value):
-        if value < 1:
-            value = 1
         self._interpolationFrames = value
 
     @property
@@ -188,8 +182,6 @@ class HistoryTimelapse:
         return self._framesPerRotation
     @framesPerRotation.setter
     def framesPerRotation(self, value):
-        if value < 0:
-            value = 0
         self._framesPerRotation = value
 
     @property
