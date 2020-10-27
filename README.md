@@ -12,7 +12,7 @@ This script can be configured to save at any image resolution!  You can optional
 
 ## Installation
 
-Download this repository as ZIP and unzip the folder:
+Download this repository as ZIP and unzip the folder (put this folder in a place where you won't delete it later):
 
 ![Download button](/docs/download.png)
 
@@ -31,6 +31,18 @@ Then Select the folder called `Design-History-Animation` inside `Fusion360-Desig
 You should now see it added to your scripts.  To Run the script, select it and press *Run*:
 
 ![Script Added](/docs/scriptadded.png)
+
+
+## Use
+
+A few notes on use:
+
+- The script uses the current position of the camera in the design for the starting frame.  It will do a fitToView() call before it starts, but the angle does not change.
+- The rotation is about the y-axis (this is "up" by Fusion's convention).
+- *Timeline Range* sets the start and end position in the timeline that you would like to animate.  By default start is set to 1 and end is set to the current timeline position in the design.  Note that not all operations are animated (e.g. Sketch, Combine, ConstructionPlane).
+- *Num Final Frames* adds several frames to the end of the animation, once the script has reached the end of the selected timeline range to animate.
+
+I'm hoping the rest of the parameters in the panel are self-explanatory.
 
 
 ## Creating an Animation Video
