@@ -432,11 +432,11 @@ def run(context):
 
         commandDefinitions = ui.commandDefinitions
         # Check the command exists or not.
-        cmdDef = commandDefinitions.itemById('timelapse')
+        cmdDef = commandDefinitions.itemById('designhistoryanimation')
         if not cmdDef:
-            cmdDef = commandDefinitions.addButtonDefinition('timelapse',
-                    'Create Version Timelapse',
-                    'Create timelapse of saved versions.',
+            cmdDef = commandDefinitions.addButtonDefinition('designhistoryanimation',
+                    'Design History Animation',
+                    'Turn your Fusion360 design history into an animation',
                     './resources') # relative resource file path is specified
 
         onCommandCreated = CommandCreatedHandler()
