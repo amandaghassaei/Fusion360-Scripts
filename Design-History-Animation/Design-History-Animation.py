@@ -406,7 +406,7 @@ class HistoryTimelapse:
                     viewport.camera = camera
 
                 # Save image.
-                success = app.activeViewport.saveAsImageFile(outputPath + 'History_Timelapse_' + filename + '/' + filename + '_' + str(num) + '.png', width, height)
+                success = app.activeViewport.saveAsImageFile(outputPath + 'History_Animation_' + filename + '/' + filename + '_' + str(num) + '.png', width, height)
                 if not success:
                     ui.messageBox('Failed saving viewport image.')
 
