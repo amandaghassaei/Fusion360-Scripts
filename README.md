@@ -61,7 +61,7 @@ If your filename has spaces in it, you can escape them with `-i PATH_TO_FRAMES/f
 
 ## Creating an Animated GIF
 
-I upload the resulting video or raw frames to [ezgif](https://ezgif.com/) to create an animated gif.  I'm sure many other solutions exist.
+I upload the resulting video or raw frames to [ezgif](https://ezgif.com/) to create an animated gif.  I'm sure many other solutions exist (e.g. Photoshop, Premiere, GIMP).
 
 
 ## Development
