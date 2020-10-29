@@ -438,8 +438,7 @@ def run(context):
         if not cmdDef:
             cmdDef = commandDefinitions.addButtonDefinition('designhistoryanimation',
                     'Design History Animation',
-                    'Turn your Fusion360 design history into an animation',
-                    './resources') # relative resource file path is specified
+                    'Turn your Fusion360 design history into an animation')
 
         onCommandCreated = CommandCreatedHandler()
         cmdDef.commandCreated.add(onCommandCreated)
