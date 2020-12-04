@@ -1,0 +1,10 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"Amanda Ghassaei",
+	"description":	{
+		"":	"Turn your Fusion360 version history into a timelapse animation"
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
