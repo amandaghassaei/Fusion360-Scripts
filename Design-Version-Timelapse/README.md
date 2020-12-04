@@ -7,7 +7,6 @@ This script can be configured to save at any image resolution and has a few othe
 
 **WARNING - USE AT YOUR OWN RISK.**  This script is opens old versions of your design and takes screenshots without doing any saving operations or promoting the old version.  However, things in Fusion's API could change at any point without warning and you never know what repercussions that might have.  So please test this out on something you don't care much about first.  I use this on my own files and have had no issues, but if you have a very important document you want to run this on, you might want to at least save a copy of it before proceeding.
 
-If you like this, you should also check out [Fusion360-Design-History-Animation](https://github.com/amandaghassaei/Fusion360-Design-History-Animation).
 
 ## Installation
 
