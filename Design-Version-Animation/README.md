@@ -1,4 +1,4 @@
-# Fusion360-Design-Version-Timelapse
+# Design-Version-Timelapse
 A script to turn your Fusion360 version history (i.e. all your previous saves) into a timelapse animation.
 
 ![Animation Example](/docs/animation.gif)
@@ -11,26 +11,7 @@ If you like this, you should also check out [Fusion360-Design-History-Animation]
 
 ## Installation
 
-Download this repository as ZIP and unzip the folder (put this folder in a place where you won't delete it later):
-
-![Download button](/docs/download.png)
-
-In the *Design* workspace, go to the *Tools* tab and select *Add Ins > Scripts and Add-Ins...*:
-
-![Tools Menu](/docs/tools.png)
-
-Click the green plus sign next to My Scripts:
-
-![Add Script](/docs/addscript.png)
-
-Then Select the folder called `Design-Version-Timelapse` inside `Fusion360-Design-Version-Timelapse`:
-
-![Select Folder](/docs/selectfolder.png)
-
-You should now see it added to your scripts.  To Run the script, select it and press *Run*:
-
-![Script Added](/docs/scriptadded.png)
-
+See instructions in the parent README.
 
 ## Use
 
