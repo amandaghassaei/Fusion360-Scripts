@@ -1,7 +1,7 @@
 # Design-Version-Timelapse
 A script to turn your Fusion360 version history (i.e. all your previous saves) into a timelapse animation.
 
-![Animation Example](/docs/animation.gif)
+![Animation Example](docs/animation.gif)
 
 This script can be configured to save at any image resolution and has a few other configurable controls including spin and other camera stabilization settings.  See [Use](#Use) for more details.  
 

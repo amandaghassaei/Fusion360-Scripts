@@ -1,11 +1,11 @@
 # Design-History-Animation
 A script to turn your Fusion360 design history timeline into an animation.  When run, this script rolls your design history timeline back to the beginning and saves out screenshots as it steps through each operation in your design.  For many operations (e.g. Extrudes, Revolves), it create a smooth animation by interpolating across a range of values.
 
-![Animation Example](/docs/animation.gif)
+![Animation Example](docs/animation.gif)
 
 This script can be configured to save at any image resolution!  You can optionally add spin to the animation and change various other parameters via a small panel:
 
-![Plugin Panel](/docs/panel.png)
+![Plugin Panel](docs/panel.png)
 
 **WARNING - THIS SCRIPT WILL MAKE CHANGES TO YOUR DESIGN FILE.**  I recommended running this script on the copy of your design so that you don't accidentally modify your file.  At the very least, do not save the changes to your file - they involve unlinking references to external components for better control over the animation transitions - you probably do not want these changes.
 
