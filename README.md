@@ -6,7 +6,7 @@ This repo contains a number of fusion scripts.  More info about each script is g
 
 A script to turn your Fusion360 version history (i.e. all your previous saves) into a timelapse animation.
 
-<img src="Design-Version-Animation/docs/animation.gif" alt="Animation Example" height="250px" />
+<img src="Design-Version-Timelapse/docs/animation.gif" alt="Animation Example" height="250px" />
 
 ## [Design History Animation](Design-History-Animation/)
 
