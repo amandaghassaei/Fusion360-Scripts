@@ -13,7 +13,7 @@ If you like this, you should also check out [Fusion360-Design-Version-Timelapse]
 
 ## Installation
 
-See instructions in the parent README.
+See instructions in the [parent README](https://github.com/amandaghassaei/Fusion360-Scripts#installation).
 
 
 ## Use
