@@ -2,7 +2,7 @@
 
 This repo contains a number of fusion scripts.  More info about each script is given in the README.md inside each folder.
 
-## [Design Version Animation](Design-Version-Animation/)
+## [Design Version Timelapse](Design-Version-Timelapse/)
 
 A script to turn your Fusion360 version history (i.e. all your previous saves) into a timelapse animation.
 
