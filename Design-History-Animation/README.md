@@ -9,7 +9,6 @@ This script can be configured to save at any image resolution!  You can optional
 
 **WARNING - THIS SCRIPT WILL MAKE CHANGES TO YOUR DESIGN FILE.**  I recommended running this script on the copy of your design so that you don't accidentally modify your file.  At the very least, do not save the changes to your file - they involve unlinking references to external components for better control over the animation transitions - you probably do not want these changes.
 
-If you like this, you should also check out [Fusion360-Design-Version-Timelapse](https://github.com/amandaghassaei/Fusion360-Design-Version-Timelapse).
 
 ## Installation
 
