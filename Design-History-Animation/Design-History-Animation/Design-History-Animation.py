@@ -27,6 +27,8 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                     timelapse.filename = input.value
                 elif input.id == 'outputPath':
                     timelapse.outputPath = input.value
+                elif input.id == 'saveObj':
+                    timelapse.saveObj = input.value
                 elif input.id == 'width':
                     timelapse.width = input.value
                 elif input.id == 'height':
@@ -83,6 +85,7 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # File params.
             inputs.addStringValueInput('filename', 'Filename', timelapse.filename)
             inputs.addStringValueInput('outputPath', 'Output Path', timelapse.outputPath)
+            inputs.addBoolValueInput('saveObj', 'Save .obj Files', True, '', timelapse.saveObj)
             inputs.addIntegerSpinnerCommandInput('width', 'Image Width (px)', 1, 1000000, 1, timelapse.width)
             inputs.addIntegerSpinnerCommandInput('height', 'Image Height (px)', 1, 1000000, 1, timelapse.height)
             # Animation params.
@@ -105,6 +108,7 @@ class HistoryTimelapse:
         # Set initial values.
         self._filename = dataFile.name
         self._outputPath = os.path.expanduser("~/Desktop/")
+        self._saveObj = False
         self._timeline = design.timeline
         self._width = 2000
         self._height = 2000
@@ -130,6 +134,13 @@ class HistoryTimelapse:
     @outputPath.setter
     def outputPath(self, value):
         self._outputPath = value
+
+    @property
+    def saveObj(self):
+        return self._saveObj
+    @saveObj.setter
+    def saveObj(self, value):
+        self._saveObj = value
     
     @property
     def timeline(self):
@@ -215,6 +226,7 @@ class HistoryTimelapse:
         height = self.height
         filename = self.filename
         outputPath = self.outputPath
+        saveObj = self.saveObj
         timeline = self.timeline
         documents = app.documents
         interpolationFrames = self.interpolationFrames
@@ -406,9 +418,16 @@ class HistoryTimelapse:
                     viewport.camera = camera
 
                 # Save image.
-                success = app.activeViewport.saveAsImageFile(outputPath + 'History_Animation_' + filename + '/' + filename + '_' + str(num) + '.png', width, height)
+                outputFilename = outputPath + 'History_Animation_' + filename + '/' + filename + '_' + str(num)
+                success = app.activeViewport.saveAsImageFile(outputFilename + '.png', width, height)
                 if not success:
                     ui.messageBox('Failed saving viewport image.')
+                
+                # Save obj file if requested
+                if saveObj:
+                    success = self.saveObjFile(outputFilename + '.obj')
+                    if not success:
+                        ui.messageBox('Failed saving obj file.')
 
                 num += 1
 
@@ -418,6 +437,64 @@ class HistoryTimelapse:
                 interpolatedParameters[k].expression = originalExpressions[k]
             for k in range(len(alphaComponents)):
                 alphaComponents[k].opacity = originalAlphas[k]
+    
+    def saveObjFile(self, file):
+        '''Export an .obj file from the root component'''
+        try:
+            adsk.doEvents()
+            bodies = []
+            comp = self.design.rootComponent
+            for body in comp.bRepBodies:
+                bodies.append(body)
+            for occurrence in comp.allOccurrences:
+                for body in occurrence.bRepBodies:
+                    bodies.append(body)
+
+            meshes = []
+            for body in bodies:
+                mesher = body.meshManager.createMeshCalculator()
+                mesher.setQuality(
+                    adsk.fusion.TriangleMeshQualityOptions.NormalQualityTriangleMesh
+                )
+                mesh = mesher.calculate()
+                meshes.append(mesh)
+
+            triangle_count = 0
+            vert_count = 0
+            for mesh in meshes:
+                triangle_count += mesh.triangleCount
+                vert_count += mesh.nodeCount
+
+            # Write the mesh to OBJ
+            with open(file, 'w') as fh:
+                fh.write('# WaveFront *.obj file\n')
+                fh.write(f'# Vertices: {vert_count}\n')
+                fh.write(f'# Triangles : {triangle_count}\n\n')
+
+                for mesh in meshes:
+                    verts = mesh.nodeCoordinates
+                    for pt in verts:
+                        fh.write(f'v {pt.x} {pt.y} {pt.z}\n')
+                for mesh in meshes:
+                    for vec in mesh.normalVectors:
+                        fh.write(f'vn {vec.x} {vec.y} {vec.z}\n')
+
+                index_offset = 0
+                for mesh in meshes:
+                    mesh_tri_count = mesh.triangleCount
+                    indices = mesh.nodeIndices
+                    for t in range(mesh_tri_count):
+                        i0 = indices[t * 3] + 1 + index_offset
+                        i1 = indices[t * 3 + 1] + 1 + index_offset
+                        i2 = indices[t * 3 + 2] + 1 + index_offset
+                        fh.write(f'f {i0}//{i0} {i1}//{i1} {i2}//{i2}\n')
+                    index_offset += mesh.nodeCount
+
+                fh.write(f'\n# End of file')
+                return True
+
+        except Exception as ex:
+            return False
 
 def run(context):
     global timelapse
