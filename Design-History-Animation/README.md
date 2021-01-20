@@ -5,7 +5,7 @@ A script to turn your Fusion360 design history timeline into an animation.  When
 
 This script can be configured to save at any image resolution!  You can optionally add spin to the animation and change various other parameters via a small panel:
 
-![Plugin Panel](docs/panel.png)
+<img src="docs/panel.png" width="366px" alt="Plugin Panel" />
 
 **WARNING - THIS SCRIPT WILL MAKE CHANGES TO YOUR DESIGN FILE.**  I recommended running this script on the copy of your design so that you don't accidentally modify your file.  At the very least, do not save the changes to your file - they involve unlinking references to external components for better control over the animation transitions - you probably do not want these changes.
 
@@ -23,6 +23,7 @@ A few notes on use:
 - The rotation is about the y-axis (this is "up" by Fusion's convention).
 - *Timeline Range* sets the start and end position in the timeline that you would like to animate.  By default start is set to 1 and end is set to the current timeline position in the design.  Note that not all operations are animated (e.g. Sketch, Combine, ConstructionPlane).
 - *Num Final Frames* adds several frames to the end of the animation, once the script has reached the end of the selected timeline range to animate.
+- *Save .obj Files* saves a sequence of [.obj mesh files](https://en.wikipedia.org/wiki/Wavefront_.obj_file) that can be used for further renderings.
 
 I'm hoping the rest of the parameters in the panel are self-explanatory.
 
