@@ -499,11 +499,11 @@ class HistoryTimelapse:
 def run(context):
     global timelapse
     try:
-        ui.messageBox('WARNING: This script will make irreversible changes to your file (e.g. break links to referenced components).  You may want to run this on a copy of your design.')
+        ui.messageBox('WARNING: This script will make changes to your file (e.g. break links to referenced components).  You may want to run this on a copy of your design.')
         product = app.activeProduct
         design = adsk.fusion.Design.cast(product)
         if not design:
-            ui.messageBox('It is not supported in current workspace, please change to MODEL workspace and try again.')
+            ui.messageBox('Script is not supported in current workspace, please change to MODEL workspace and try again.')
             return
         # Init a timelapse object.
         if timelapse == None:

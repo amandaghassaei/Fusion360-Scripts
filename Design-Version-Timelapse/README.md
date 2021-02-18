@@ -31,12 +31,12 @@ After all the still frames (with the name FILENAME_###.png) are generated, I use
 
 ```ffmpeg -r 15 -i PATH_TO_FRAMES/FILENAME_%d.png -c:v libx264 -preset slow -crf 22 -pix_fmt yuv420p -an OUTPUT_DIRECTORY/animation.mp4```
 
-`-r 15` sets the framerate to 15 fps
+`-r 15` sets the framerate to 15 fps  
 `-c:v libx264 -preset slow -crf 22` encodes as h.264 with better compression settings  
-`-pix_fmt yuv420p` makes it compatible with the web browser
-`-an` creates a video with no audio. 
-You can optionally specify `-s 640x640` to control the output size of the video. 
-If your filename has spaces in it, you can escape them with `-i PATH_TO_FRAMES/filename\ with\ spaces_%d.png`
+`-pix_fmt yuv420p` makes it compatible with the web browser  
+`-an` creates a video with no audio.  
+You can optionally specify `-s 640x640` to control the output size of the video.  
+If your filename has spaces in it, you can escape them with `-i PATH_TO_FRAMES/filename\ with\ spaces_%d.png`  
 
 In case you need to delete some of the frames from the sequence, I've included a script for renaming them back to a sequential order that ffmpeg expects:
 
