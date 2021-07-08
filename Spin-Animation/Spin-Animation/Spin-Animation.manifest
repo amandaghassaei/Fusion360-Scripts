@@ -1,0 +1,10 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"Amanda Ghassaei",
+	"description":	{
+		"":	"Spin a design and generate animation frames"
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}

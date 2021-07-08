@@ -80,22 +80,24 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             handlers.append(onExecute)
             handlers.append(onDestroy)
 
+            max_int = 2147483647
+
             # Define the inputs.
             inputs = cmd.commandInputs
             # File params.
             inputs.addStringValueInput('filename', 'Filename', timelapse.filename)
             inputs.addStringValueInput('outputPath', 'Output Path', timelapse.outputPath)
             inputs.addBoolValueInput('saveObj', 'Save .obj Files', True, '', timelapse.saveObj)
-            inputs.addIntegerSpinnerCommandInput('width', 'Image Width (px)', 1, 1000000, 1, timelapse.width)
-            inputs.addIntegerSpinnerCommandInput('height', 'Image Height (px)', 1, 1000000, 1, timelapse.height)
+            inputs.addIntegerSpinnerCommandInput('width', 'Image Width (px)', 1, max_int, 1, timelapse.width)
+            inputs.addIntegerSpinnerCommandInput('height', 'Image Height (px)', 1, max_int, 1, timelapse.height)
             # Animation params.
             inputs.addIntegerSliderCommandInput('range', 'Timeline Range', 1, timelapse.timeline.count, True)
             inputs.itemById('range').valueOne = timelapse.start
             inputs.itemById('range').valueTwo = timelapse.end
-            inputs.addIntegerSpinnerCommandInput('interpolationFrames', 'Frames per Operation', 1, 100000, 1, timelapse.interpolationFrames)
+            inputs.addIntegerSpinnerCommandInput('interpolationFrames', 'Frames per Operation', 1, max_int, 1, timelapse.interpolationFrames)
             inputs.addBoolValueInput('rotate', 'Should Rotate Design', True, '', timelapse.rotate)
-            inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 1, 100000, 1, timelapse.framesPerRotation)
-            inputs.addIntegerSpinnerCommandInput('finalFrames', 'Num Final Frames', 0, 100000, 1, timelapse.finalFrames)
+            inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 1, max_int, 1, timelapse.framesPerRotation)
+            inputs.addIntegerSpinnerCommandInput('finalFrames', 'Num Final Frames', 0, max_int, 1, timelapse.finalFrames)
 
         except:
             if ui:
