@@ -1,5 +1,5 @@
 # Spin-Animation
-A script to spin your design and generate still for an animation.
+A script to spin your design and generate stills for an animation.
 
 ![Animation Example](docs/animation.gif)
 

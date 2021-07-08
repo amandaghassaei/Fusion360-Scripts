@@ -16,7 +16,7 @@ Turn your Fusion360 design history timeline into an animation.
 
 ## [Spin Animation](Spin-Animation/)
 
-Spin you design and export screenshots.
+Spin your design and export screenshots.
 
 <img src="Spin-Animation/docs/animation.gif" alt="Animation Example" height="250px" />
 
