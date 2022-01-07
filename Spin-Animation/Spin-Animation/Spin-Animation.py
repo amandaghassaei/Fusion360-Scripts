@@ -28,6 +28,10 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
             frameRecorder.centerY = input.value
         elif input.id == 'centerZ':
             frameRecorder.centerZ = input.value
+        elif input.id == 'zoomStart':
+            frameRecorder.zoomStart = input.value
+        elif input.id == 'zoomEnd':
+            frameRecorder.zoomEnd = input.value
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -56,6 +60,10 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                     frameRecorder.centerY = input.value
                 elif input.id == 'centerZ':
                     frameRecorder.centerZ = input.value
+                elif input.id == 'zoomStart':
+                    frameRecorder.zoomStart = input.value
+                elif input.id == 'zoomEnd':
+                    frameRecorder.zoomEnd = input.value
 
             frameRecorder.collectFrames()
 
@@ -119,7 +127,8 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addFloatSpinnerCommandInput('centerX', 'Center X', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerX)
             inputs.addFloatSpinnerCommandInput('centerY', 'Center Y', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerY)
             inputs.addFloatSpinnerCommandInput('centerZ', 'Center Z', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerZ)
-
+            inputs.addFloatSpinnerCommandInput('zoomStart', 'Zoom Radius Start', units, 0, pos_infinity, 0.1, frameRecorder.zoomStart)
+            inputs.addFloatSpinnerCommandInput('zoomEnd', 'Zoom Radius End', units, 0, pos_infinity, 0.1, frameRecorder.zoomEnd)
 
         except:
             if ui:
@@ -144,8 +153,9 @@ class FrameRecorder:
         self._centerZ = camera.target.z
         self._cameraTarget = adsk.core.Point3D.create(self._centerX, self._centerY, self._centerZ)
         self._cameraOffset = self._cameraTarget.vectorTo(camera.eye)
-        self._cameraExtents = camera.viewExtents # Radius of bounding sphere to fit camera view to.
 
+        self._zoomStart = camera.viewExtents / 2.54 # Radius of bounding sphere to fit camera view to.
+        self._zoomEnd = self._zoomStart
     # Properties.
     @property
     def filename(self):
@@ -198,6 +208,21 @@ class FrameRecorder:
         self.updateCamera()
 
     @property
+    def zoomStart(self):
+        return self._zoomStart
+    @zoomStart.setter
+    def zoomStart(self, value):
+        self._zoomStart = value
+        self.updateCamera(value)
+    @property
+    def zoomEnd(self):
+        return self._zoomEnd
+    @zoomEnd.setter
+    def zoomEnd(self, value):
+        self._zoomEnd = value
+        self.updateCamera(value)
+
+    @property
     def framesPerRotation(self):
         return self._framesPerRotation
     @framesPerRotation.setter
@@ -213,17 +238,19 @@ class FrameRecorder:
             value = 1
         self._numRotations = value
 
-    def updateCamera(self):
+    def updateCamera(self, extents=None):
         viewport = app.activeViewport
         camera = viewport.camera
         self._cameraTarget = adsk.core.Point3D.create(self._centerX, self._centerY, self._centerZ)
         self._cameraOffset = self._cameraTarget.vectorTo(camera.eye)
-        self._cameraExtents = camera.viewExtents # Radius of bounding sphere to fit camera view to.
+        cameraExtents = camera.viewExtents # Radius of bounding sphere to fit camera view to.
+        if extents != None:
+            cameraExtents = extents
         camera.target = self._cameraTarget
         offset = camera.target.copy()
         offset.translateBy(self._cameraOffset)
         camera.eye = offset
-        camera.viewExtents = self._cameraExtents
+        camera.viewExtents = cameraExtents
         # Set camera property to trigger update.
         camera.upVector = adsk.core.Vector3D.create(0, 1, 0)
         viewport.camera = camera
@@ -235,16 +262,20 @@ class FrameRecorder:
         outputPath = self.outputPath
         framesPerRotation = self.framesPerRotation
         numRotations = self.numRotations
+        zoomStart = self.zoomStart
+        zoomEnd = self.zoomEnd
 
         viewport = app.activeViewport
+        numFrames = framesPerRotation * numRotations
 
-        for i in range(0, framesPerRotation * numRotations):
+        for i in range(0, numFrames):
             camera = viewport.camera
             camera.target = self._cameraTarget
             offset = camera.target.copy()
             offset.translateBy(self._cameraOffset)
             camera.eye = offset
-            camera.viewExtents = self._cameraExtents
+            t = float(i) / float(numFrames)
+            camera.viewExtents = zoomEnd * t + zoomStart * (1 - t)
             # Rotate camera around y axis.
             angle = math.pi * 2.0 * i / framesPerRotation
             eye = camera.eye

@@ -19,32 +19,19 @@ See instructions in the [parent README](https://github.com/amandaghassaei/Fusion
 
 A few notes on use:
 
-- The script uses the current position of the camera in the design for the starting frame.  It will do a fitToView() call before it starts, but the angle does not change.
-- The rotation is about the y-axis (this is "up" by Fusion's convention).
-- *Timeline Range* sets the start and end position in the timeline that you would like to animate.  By default start is set to 1 and end is set to the current timeline position in the design.  Note that not all operations are animated (e.g. Sketch, Combine, ConstructionPlane).
-- *Num Final Frames* adds several frames to the end of the animation, once the script has reached the end of the selected timeline range to animate.
+- The script uses the current position of the camera in the design for the starting frame.  It will do a fitToView() call before it starts to set the zoom, but the angle does not change.
 - *Save .obj Files* saves a sequence of [.obj mesh files](https://en.wikipedia.org/wiki/Wavefront_.obj_file) that can be used for further renderings.
+- *Timeline Range* sets the start and end position in the timeline that you would like to animate.  By default start is set to 1 and end is set to the current timeline position in the design.  Note that not all operations are animated (e.g. Sketch, Combine, ConstructionPlane).
+- The rotation is about the y-axis (this is "up" by Fusion's convention).
+- *Num Final Frames* adds several frames to the end of the animation, once the script has reached the end of the selected timeline range to animate.
+
 
 I'm hoping the rest of the parameters in the panel are self-explanatory.
 
 
-## Creating an Animation Video
+## Creating an Animation Video/GIF
 
-After all the still frames (with the name FILENAME_###.png) are generated, I use [ffmpeg](https://ffmpeg.org/) to compile the stills into an animation.  From the terminal run:
-
-```ffmpeg -r 30 -i PATH_TO_FRAMES/FILENAME_%d.png -c:v libx264 -preset slow -crf 22 -pix_fmt yuv420p -an OUTPUT_DIRECTORY/animation.mp4```
-
-`-r 30` sets the framerate to 30 fps  
-`-c:v libx264 -preset slow -crf 22` encodes as h.264 with better compression settings  
-`-pix_fmt yuv420p` makes it compatible with the web browser  
-`-an` creates a video with no audio  
-You can optionally specify `-s 640x640` to control the output size of the video  
-If your filename has spaces in it, you can escape them with `-i PATH_TO_FRAMES/filename\ with\ spaces_%d.png`  
-
-
-## Creating an Animated GIF
-
-I upload the resulting video or raw frames to [ezgif](https://ezgif.com/) to create an animated gif.  I'm sure many other solutions exist (e.g. Photoshop, Premiere, GIMP).
+See instructions in the [parent README](https://github.com/amandaghassaei/Fusion360-Scripts#creating-an-animation-video).
 
 
 ## Development
@@ -56,3 +43,4 @@ Pull requests welcome!  This is a quick script I wrote for myself, and while it 
 - **[FilletFeature](https://help.autodesk.com/view/fusion360/ENU/?guid=GUID-9f6de809-6e53-4667-bedb-9e95600411e9) / [ChamferFeature](https://help.autodesk.com/view/fusion360/ENU/?guid=GUID-7a005e53-0664-479c-9f6a-6146709ca1ef) / [OffsetFacesFeature](https://help.autodesk.com/view/fusion360/ENU/?guid=GUID-5FF19D49-8553-4F36-9C7F-8199B2A71933)**: I'm unable to figure out how to extract the extent parameter for these operations.  Bug report [here](https://forums.autodesk.com/t5/fusion-360-api-and-scripts/missing-extent-parameter-for-filletfeature-chamferfeature/td-p/9826317).
 - **More robust handling of Joints**: Currently this code assumes that when users add a new component to an assembly, they immediately add a joint to it and move into into the correct position.  Because of this, the code ignores "Occurrence" operations - where the part is initially placed in the assembly, and instead fades in the object at occurrenceOne of the following Joint operation.  This is typically how I set up my files, but I'm sure a more robust approach could be established.  One case where I'm still having trouble is when the Joint's occurrenceOne is not the top-level component of the the new added assembly - see TODO note in Joint handler for more details.
 - **Additional timeline operations**: This script does not handle all of the operations that Fusion360's design history timeline may contain, just those that I frequently use. The quality of the resulting animations could be improved by adding additional handlers for more operations.
+- **Select Rotation Axis**: Currently this is set to rotate around the Y axis, but it would be nice to generalize this.
