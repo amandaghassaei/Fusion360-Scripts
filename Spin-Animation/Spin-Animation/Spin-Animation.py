@@ -10,6 +10,9 @@ if app:
 # Global set of event handlers to keep them referenced for the duration of the command
 handlers = []
 
+centerEndInputs = []
+zoomEndInputs = []
+
 # Keep the frameRecorder object in global namespace.
 frameRecorder = None
 
@@ -22,16 +25,32 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
         
         # Check the value of the input.
         input = eventArgs.input
-        if input.id == 'centerX':
-            frameRecorder.centerX = input.value
-        elif input.id == 'centerY':
-            frameRecorder.centerY = input.value
-        elif input.id == 'centerZ':
-            frameRecorder.centerZ = input.value
+        if input.id == 'centerStartX':
+            centerStart = frameRecorder.centerStart
+            frameRecorder.centerStart = (input.value, centerStart[1], centerStart[2])
+        elif input.id == 'centerStartY':
+            centerStart = frameRecorder.centerStart
+            frameRecorder.centerStart = (centerStart[0], input.value, centerStart[2])
+        elif input.id == 'centerStartZ':
+            centerStart = frameRecorder.centerStart
+            frameRecorder.centerStart = (centerStart[0], centerStart[1], input.value)
+        elif input.id == 'centerEndX':
+            centerEnd = frameRecorder.centerEnd
+            frameRecorder.centerEnd = (input.value, centerEnd[1], centerEnd[2])
+        elif input.id == 'centerEndY':
+            centerEnd = frameRecorder.centerEnd
+            frameRecorder.centerEnd = (centerEnd[0], input.value, centerEnd[2])
+        elif input.id == 'centerEndZ':
+            centerEnd = frameRecorder.centerEnd
+            frameRecorder.centerEnd = (centerEnd[0], centerEnd[1], input.value)
+        elif input.id == 'animateCenter':
+            frameRecorder.animateCenter = input.value
         elif input.id == 'zoomStart':
             frameRecorder.zoomStart = input.value
         elif input.id == 'zoomEnd':
             frameRecorder.zoomEnd = input.value
+        elif input.id == 'animateZoom':
+            frameRecorder.animateZoom = input.value
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -54,16 +73,6 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                     frameRecorder.framesPerRotation = input.value
                 elif input.id == 'numRotations':
                     frameRecorder.numRotations = input.value
-                elif input.id == 'centerX':
-                    frameRecorder.centerX = input.value
-                elif input.id == 'centerY':
-                    frameRecorder.centerY = input.value
-                elif input.id == 'centerZ':
-                    frameRecorder.centerZ = input.value
-                elif input.id == 'zoomStart':
-                    frameRecorder.zoomStart = input.value
-                elif input.id == 'zoomEnd':
-                    frameRecorder.zoomEnd = input.value
 
             frameRecorder.collectFrames()
 
@@ -122,13 +131,23 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addIntegerSpinnerCommandInput('height', 'Image Height (px)', 1, max_int, 1, frameRecorder.height)
             # Animation params.
             inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 1, max_int, 1, frameRecorder.framesPerRotation)
-            inputs.addIntegerSpinnerCommandInput('numRotations', 'Num Rotations', 1, max_int, 1, frameRecorder.numRotations)
+            inputs.addFloatSpinnerCommandInput('numRotations', 'Num Rotations', '', neg_infinity, pos_infinity, 0.1, frameRecorder.numRotations)
             # Camera params.
-            inputs.addFloatSpinnerCommandInput('centerX', 'Center X', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerX)
-            inputs.addFloatSpinnerCommandInput('centerY', 'Center Y', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerY)
-            inputs.addFloatSpinnerCommandInput('centerZ', 'Center Z', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerZ)
-            inputs.addFloatSpinnerCommandInput('zoomStart', 'Zoom Radius Start', units, 0, pos_infinity, 0.1, frameRecorder.zoomStart)
-            inputs.addFloatSpinnerCommandInput('zoomEnd', 'Zoom Radius End', units, 0, pos_infinity, 0.1, frameRecorder.zoomEnd)
+            inputs.addFloatSpinnerCommandInput('centerStartX', 'Center X', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerStart[0])
+            inputs.addFloatSpinnerCommandInput('centerStartY', 'Center Y', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerStart[1])
+            inputs.addFloatSpinnerCommandInput('centerStartZ', 'Center Z', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerStart[2])
+            inputs.addFloatSpinnerCommandInput('zoomStart', 'Zoom Radius', units, 0, pos_infinity, 0.1, frameRecorder.zoomStart)
+            inputs.addBoolValueInput('animateCenter', 'Animate Center Position', True, '', frameRecorder.animateCenter)
+            centerEndInputs.append(inputs.addFloatSpinnerCommandInput('centerEndX', 'Center X End', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerEnd[0]))
+            centerEndInputs.append(inputs.addFloatSpinnerCommandInput('centerEndY', 'Center Y End', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerEnd[1]))
+            centerEndInputs.append(inputs.addFloatSpinnerCommandInput('centerEndZ', 'Center Z End', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerEnd[2]))
+            inputs.addBoolValueInput('animateZoom', 'Animate Zoom', True, '', frameRecorder.animateZoom)
+            zoomEndInputs.append(inputs.addFloatSpinnerCommandInput('zoomEnd', 'Zoom Radius End', units, 0, pos_infinity, 0.1, frameRecorder.zoomEnd))
+
+            # Trigger refresh of ui visibility
+            frameRecorder.animateCenter = frameRecorder.animateCenter
+            frameRecorder.animateZoom = frameRecorder.animateZoom
+
 
         except:
             if ui:
@@ -148,14 +167,15 @@ class FrameRecorder:
 
         viewport = app.activeViewport
         camera = viewport.camera
-        self._centerX = camera.target.x
-        self._centerY = camera.target.y
-        self._centerZ = camera.target.z
-        self._cameraTarget = adsk.core.Point3D.create(self._centerX, self._centerY, self._centerZ)
+        self._centerStart = [camera.target.x, camera.target.y, camera.target.z]
+        self._centerEnd = [camera.target.x, camera.target.y, camera.target.z]
+        self._animateCenter = False
+        self._cameraTarget = adsk.core.Point3D.create(self._centerStart[0], self._centerStart[1], self._centerStart[2])
         self._cameraOffset = self._cameraTarget.vectorTo(camera.eye)
 
         self._zoomStart = camera.viewExtents / 2.54 # Radius of bounding sphere to fit camera view to.
         self._zoomEnd = self._zoomStart
+        self._animateZoom = False
     # Properties.
     @property
     def filename(self):
@@ -186,26 +206,47 @@ class FrameRecorder:
         self._height = value
 
     @property
-    def centerX(self):
-        return self._centerX
-    @centerX.setter
-    def centerX(self, value):
-        self._centerX = value
-        self.updateCamera()
+    def centerStart(self):
+        return self._centerStart
+    @centerStart.setter
+    def centerStart(self, center):
+        x, y, z = center
+        self._centerStart = [x, y, z]
+        self.updateCameraTarget(x, y, z)
     @property
-    def centerY(self):
-        return self._centerY
-    @centerY.setter
-    def centerY(self, value):
-        self._centerY = value
-        self.updateCamera()
+    def centerEnd(self):
+        return self._centerEnd
+    @centerEnd.setter
+    def centerEnd(self, center):
+        x, y, z = center
+        self._centerEnd = [x, y, z]
+        self.updateCameraTarget(x, y, z)
+
     @property
-    def centerZ(self):
-        return self._centerZ
-    @centerZ.setter
-    def centerZ(self, value):
-        self._centerZ = value
-        self.updateCamera()
+    def animateCenter(self):
+        return self._animateCenter
+    @animateCenter.setter
+    def animateCenter(self, value):
+        self._animateCenter = value
+        if not value:
+            # centerEnd = centerStart
+            self.centerEnd = (self.centerStart[0], self.centerStart[1], self.centerStart[2])
+        # Show/hide inputs.
+        for input in centerEndInputs:
+            input.isVisible = self._animateCenter
+
+    @property
+    def animateZoom(self):
+        return self._animateZoom
+    @animateZoom.setter
+    def animateZoom(self, value):
+        self._animateZoom = value
+        if not value:
+            # zoomEnd = zoomStart
+            self.zoomEnd = self.zoomStart
+        # Show/hide inputs.
+        for input in zoomEndInputs:
+            input.isVisible = self._animateZoom
 
     @property
     def zoomStart(self):
@@ -234,15 +275,18 @@ class FrameRecorder:
         return self._numRotations
     @numRotations.setter
     def numRotations(self, value):
-        if value < 1:
-            value = 1
         self._numRotations = value
+
+    def updateCameraTarget(self, x, y, z):
+        viewport = app.activeViewport
+        camera = viewport.camera
+        self._cameraOffset = self._cameraTarget.vectorTo(camera.eye)
+        self._cameraTarget = adsk.core.Point3D.create(x, y, z)
+        self.updateCamera()
 
     def updateCamera(self, extents=None):
         viewport = app.activeViewport
         camera = viewport.camera
-        self._cameraTarget = adsk.core.Point3D.create(self._centerX, self._centerY, self._centerZ)
-        self._cameraOffset = self._cameraTarget.vectorTo(camera.eye)
         cameraExtents = camera.viewExtents # Radius of bounding sphere to fit camera view to.
         if extents != None:
             cameraExtents = extents
@@ -263,21 +307,28 @@ class FrameRecorder:
         framesPerRotation = self.framesPerRotation
         numRotations = self.numRotations
         zoomStart = self.zoomStart
-        zoomEnd = self.zoomEnd
+        zoomEnd = self.zoomEnd if self.animateZoom else zoomStart
+        centerStart = self.centerStart
+        centerEnd = self.centerEnd if self.animateCenter else centerStart
 
         viewport = app.activeViewport
-        numFrames = framesPerRotation * numRotations
+        numFrames = int(abs(framesPerRotation * numRotations))
 
         for i in range(0, numFrames):
+            t = float(i) / float(numFrames)
             camera = viewport.camera
-            camera.target = self._cameraTarget
+            x = centerEnd[0] * t + centerStart[0] * (1 - t)
+            y = centerEnd[1] * t + centerStart[1] * (1 - t)
+            z = centerEnd[2] * t + centerStart[2] * (1 - t)
+            camera.target = adsk.core.Point3D.create(x, y, z)
             offset = camera.target.copy()
             offset.translateBy(self._cameraOffset)
             camera.eye = offset
-            t = float(i) / float(numFrames)
             camera.viewExtents = zoomEnd * t + zoomStart * (1 - t)
             # Rotate camera around y axis.
             angle = math.pi * 2.0 * i / framesPerRotation
+            if numRotations < 0:
+                angle = angle * -1.0
             eye = camera.eye
             cos = math.cos(angle)
             sin = math.sin(angle)
