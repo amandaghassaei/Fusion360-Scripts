@@ -1,0 +1,10 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"Amanda Ghassaei",
+	"description":	{
+		"":	"Print current camera state"
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
