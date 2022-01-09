@@ -7,11 +7,9 @@ This script can be configured to save at any image resolution!  You can specify 
 
 ![Plugin Panel](docs/panel.png)
 
-
 ## Installation
 
 See instructions in the [parent README](https://github.com/amandaghassaei/Fusion360-Scripts#installation).
-
 
 ## Use
 
