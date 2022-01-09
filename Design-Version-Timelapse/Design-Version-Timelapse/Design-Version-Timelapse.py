@@ -1,7 +1,9 @@
 #Author-Amanda Ghassaei
 #Description-Turn your Fusion360 version history into a timelapse animation
 
-import adsk.core, traceback, os, math
+import adsk.core, traceback, os, math, json
+import neu_server 
+import neu_modeling 
 
 app = adsk.core.Application.get()
 ui  = app.userInterface
@@ -37,101 +39,30 @@ class VersionTimelapse:
         self._start = 1 # Starting version number.
         self._end = int(dataFile.versionId.split('version=')[1]) # Ending version number (defaults to current opened version).
         self._fixCamera = True # Use a consistent camera zoom/offset across versions (if False, will adjust camera to fit model boundaries for each version, I think it looks better set to True)
+        self._turnOffSectionAnalysis = True # Turning off section analysis gives better quality animations.
         self._rotate = True # Add model rotation to exported frames.
+        self._rotationDirection = 1 # Use -1 to reverse rotation direction.
         self._framesPerRotation = 250 # Number of frames for one complete rotation of model.
-        self._finalFrames = 250 # Number of frames of the final version to add to end of sequence.
+        self._finalFrames = 0 # Number of frames of the final version to add to end of sequence.
         # Save current camera target (or override), this only matters if using fixCamera = True.
         camera = app.activeViewport.camera
         self._cameraTarget = camera.target.copy() # adsk.core.Point3D.create(0, 0, 0)
         self._cameraOffset = self._cameraTarget.vectorTo(camera.eye) # adsk.core.Vector3D.create(1, 1, 1)
         self._cameraExtents = camera.viewExtents # Radius of bounding sphere to fit camera view to.
 
-    # Properties
-    @property
-    def filename(self):
-        return self._filename
-    @filename.setter
-    def filename(self, value):
-        self._filename = value
-
-    @property
-    def outputPath(self):
-        return self._outputPath
-    @outputPath.setter
-    def outputPath(self, value):
-        self._outputPath = value
-    
-    @property
-    def versions(self):
-        return self._versions
-
-    @property
-    def width(self):
-        return self._width
-    @width.setter
-    def width(self, value):
-        self._width = value
-
-    @property
-    def height(self):
-        return self._height
-    @height.setter
-    def height(self, value):
-        self._height = value
-
-    @property
-    def start(self):
-        return self._start
-    @start.setter
-    def start(self, value):
-        self._start = value
-
-    @property
-    def end(self):
-        return self._end
-    @end.setter
-    def end(self, value):
-        self._end = value
-
-    @property
-    def fixCamera(self):
-        return self._fixCamera
-    @fixCamera.setter
-    def fixCamera(self, value):
-        self._fixCamera = value
-
-    @property
-    def rotate(self):
-        return self._rotate
-    @rotate.setter
-    def rotate(self, value):
-        self._rotate = value
-
-    @property
-    def framesPerRotation(self):
-        return self._framesPerRotation
-    @framesPerRotation.setter
-    def framesPerRotation(self, value):
-        self._framesPerRotation = value
-
-    @property
-    def finalFrames(self):
-        return self._finalFrames
-    @finalFrames.setter
-    def finalFrames(self, value):
-        self._finalFrames = value
-
     def collectFrames(self):
-        versions = self.versions
-        start = self.start - 1 # Zero index the start value
-        end = self.end
-        width = self.width
-        height = self.height
-        filename = self.filename
-        outputPath = self.outputPath
-        fixCamera = self.fixCamera
-        framesPerRotation = self.framesPerRotation if self.rotate else 0
-        finalFrames = self.finalFrames
+        versions = self._versions
+        start = self._start - 1 # Zero index the start value
+        end = self._end
+        width = self._width
+        height = self._height
+        filename = self._filename
+        outputPath = self._outputPath
+        fixCamera = self._fixCamera
+        turnOffSectionAnalysis = self._turnOffSectionAnalysis
+        framesPerRotation = self._framesPerRotation if self._rotate else 0
+        rotationDirection = self._rotationDirection
+        finalFrames = self._finalFrames
 
         documents = app.documents
 
@@ -142,6 +73,20 @@ class VersionTimelapse:
             # Open older version.
             version = versions[i]
             document = documents.open(version, True)
+
+            if turnOffSectionAnalysis:
+                # This is not officially supported.
+                # https://forums.autodesk.com/t5/fusion-360-api-and-scripts/access-section-analysis/m-p/9693712
+                # For some reason turning off all analyses and turning off each individual analysis is required.
+                analyses = neu_server.get_entity_id("VisualAnalyses")
+                neu_server.set_entity_properties(analyses, {'isVisible': False})
+                # Dump all properties
+                # ui.messageBox(json.dumps(neu_server.get_entity_properties(analyses)))
+                for j in range(neu_modeling.get_child_count(analyses)):
+                    analysis = neu_modeling.get_child(analyses, j) 
+                    # Dump all properties
+                    # ui.messageBox(json.dumps(neu_server.get_entity_properties(analysis)))
+                    neu_server.set_entity_properties(analysis, {'isVisible': False})
 
             # Set viewport and rotation.
             shouldUpdateViewport = False
@@ -156,7 +101,7 @@ class VersionTimelapse:
                 camera.viewExtents = self._cameraExtents
                 shouldUpdateViewport = True
             if framesPerRotation > 0:
-                angle = math.pi * 2.0 * i / framesPerRotation
+                angle = rotationDirection * math.pi * 2.0 * i / framesPerRotation
                 eye = camera.eye
                 cos = math.cos(angle)
                 sin = math.sin(angle)
@@ -196,10 +141,8 @@ class VersionTimelapse:
 def run(context):
     try:
         ui.messageBox("""
-WARNING: I recommend testing this on a design you don't care about to be sure that it works as expected and doesn't harm your file.  
-You can quit Fusion now to stop the script if you are unsure about continuing.\n\n
-This script is slow and may take 2-3 hrs for designs with hundreds of previous versions.  
-Output images will land on your Desktop as they are saved, but it may take 30min or more for the first image to appear.\n\n
+WARNING: I recommend testing this on a design you don't care about to be sure that it works as expected and doesn't harm your file.  You can quit Fusion now to stop the script if you are unsure about continuing.\n
+This script is slow and may take 2-3 hrs for designs with hundreds of previous versions.  Output images will land on your Desktop as they are saved, but it may take 30min or more for the first image to appear.\n
 To change animation parameters, you will need to modify the code directly - see github.com/amandaghassaei/Fusion360-Design-Version-Timelapse for more details.
             """)
         timelapse = VersionTimelapse()

@@ -27,9 +27,10 @@ self._height = 2000 # Output image height, in px.
 self._start = 1 # Starting version number.
 self._end = int(dataFile.versionId.split('version=')[1]) # Ending version number (defaults to current opened version).
 self._fixCamera = True # Use a consistent camera zoom/offset across versions (if False, will adjust camera to fit model boundaries for each version, I think it looks better set to True)
+self._turnOffSectionAnalysis = True # Turning off section analysis gives better quality animations.
 self._rotate = True # Add model rotation to exported frames.
 self._framesPerRotation = 250 # Number of frames for one complete rotation of model.
-self._finalFrames = 250 # Number of frames of the final version to add to end of sequence.
+self._finalFrames = 0 # Number of frames of the final version to add to end of sequence.
 # Save current camera target (or override), this only matters if using fixCamera = True.
 camera = app.activeViewport.camera
 self._cameraTarget = camera.target.copy() # adsk.core.Point3D.create(0, 0, 0)
@@ -51,6 +52,4 @@ See instructions in the [parent README](https://github.com/amandaghassaei/Fusion
 
 ## Development
 
-Pull requests welcome!  This is a quick script I wrote for myself and I'm sure there are additional features that could be added to make it even better!  
-
-One thing I'm looking at changing is an option to turn off Section Analysis in old versions for a smoother animation (or possibly have it always on and looking at the same section).  This is currently not supported through the API, see discussion [here](https://forums.autodesk.com/t5/fusion-360-api-and-scripts/access-section-analysis/m-p/9693712).
+Pull requests welcome!  This is a quick script I wrote for myself and I'm sure there are additional features that could be added to make it even better!
