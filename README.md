@@ -48,9 +48,9 @@ You should now see it added to your scripts.  To Run the script, select it and p
 
 After all the still frames (with the name FILENAME_###.png) are generated, I use [ffmpeg](https://ffmpeg.org/) to compile the stills into an animation.  From the terminal run:
 
-```ffmpeg -r 60 -i PATH_TO_FRAMES/FILENAME_%d.png -c:v libx264 -preset slow -crf 22 -pix_fmt yuv420p -an OUTPUT_DIRECTORY/animation.mp4```
+```ffmpeg -r 30 -i PATH_TO_FRAMES/FILENAME_%d.png -c:v libx264 -preset slow -crf 22 -pix_fmt yuv420p -an OUTPUT_DIRECTORY/animation.mp4```
 
-`-r 60` sets the framerate to 60 fps  
+`-r 30` sets the framerate to 60 fps  
 `-c:v libx264 -preset slow -crf 22` encodes as h.264 with better compression settings  
 `-pix_fmt yuv420p` makes it compatible with the web browser  
 `-an` creates a video with no audio  
