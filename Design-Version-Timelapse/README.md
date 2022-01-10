@@ -49,6 +49,9 @@ Some notes:
 
 See instructions in the [parent README](https://github.com/amandaghassaei/Fusion360-Scripts#creating-an-animation-video).
 
+In case you need to delete some of the frames from the sequence, I've included a script for renaming them back to a sequential order that ffmpeg expects:
+
+`./renumber_files.sh DIRECTORY_TO_RENUMBER`
 
 ## Development
 
