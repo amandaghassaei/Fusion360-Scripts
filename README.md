@@ -24,7 +24,7 @@ Spin your design and export screenshots.
 
 Print the current state of the camera.
 
-<img src="Print-Camera-State/docs/results.png" alt="camera state parameters" width="250px" />
+<img src="Print-Camera-State/docs/results.png" alt="camera state parameters" width="500px" />
 
 
 ## Installation
