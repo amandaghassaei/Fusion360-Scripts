@@ -6,19 +6,19 @@ This repo contains a number of Fusion360 scripts.  More info about each script i
 
 Turn your Fusion360 design versions (i.e. all your previous saves) into a timelapse animation.
 
-<img src="Design-Version-Timelapse/docs/animation.gif" alt="design version animation example" width="250px" />
+<img src="Design-Version-Timelapse/docs/animation.gif" alt="design version animation example" width="300px" />
 
 ## [Design History Animation](Design-History-Animation/)
 
 Turn your Fusion360 design history timeline into an animation.
 
-<img src="Design-History-Animation/docs/animation.gif" alt="design history animation example" width="250px" />
+<img src="Design-History-Animation/docs/animation.gif" alt="design history animation example" width="300px" />
 
 ## [Spin Animation](Spin-Animation/)
 
 Spin your design and export screenshots.
 
-<img src="Spin-Animation/docs/animation.gif" alt="spin animation example" width="250px" />
+<img src="Spin-Animation/docs/animation.gif" alt="spin animation example" width="300px" />
 
 ## [Print Camera State](Print-Camera-State/)
 
