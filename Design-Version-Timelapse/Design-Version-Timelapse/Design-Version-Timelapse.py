@@ -46,6 +46,7 @@ class VersionTimelapse:
         self._finalFrames = 0 # Number of frames of the final version to add to end of sequence.
         # Save current camera target (or override), this only matters if using fixCamera = True.
         camera = app.activeViewport.camera
+        # These should all be in cm
         self._cameraTarget = camera.target.copy() # adsk.core.Point3D.create(0, 0, 0)
         self._cameraOffset = self._cameraTarget.vectorTo(camera.eye) # adsk.core.Vector3D.create(1, 1, 1)
         self._cameraExtents = camera.viewExtents # Radius of bounding sphere to fit camera view to.
@@ -78,15 +79,19 @@ class VersionTimelapse:
                 # This is not officially supported.
                 # https://forums.autodesk.com/t5/fusion-360-api-and-scripts/access-section-analysis/m-p/9693712
                 # For some reason turning off all analyses and turning off each individual analysis is required.
-                analyses = neu_server.get_entity_id("VisualAnalyses")
-                neu_server.set_entity_properties(analyses, {'isVisible': False})
-                # Dump all properties
-                # ui.messageBox(json.dumps(neu_server.get_entity_properties(analyses)))
-                for j in range(neu_modeling.get_child_count(analyses)):
-                    analysis = neu_modeling.get_child(analyses, j) 
+                # Also, I noticed this can throw an error in some cases, so wrap in try/except.
+                try: 
+                    analyses = neu_server.get_entity_id("VisualAnalyses")
+                    neu_server.set_entity_properties(analyses, {'isVisible': False})
                     # Dump all properties
-                    # ui.messageBox(json.dumps(neu_server.get_entity_properties(analysis)))
-                    neu_server.set_entity_properties(analysis, {'isVisible': False})
+                    # ui.messageBox(json.dumps(neu_server.get_entity_properties(analyses)))
+                    for j in range(neu_modeling.get_child_count(analyses)):
+                        analysis = neu_modeling.get_child(analyses, j) 
+                        # Dump all properties
+                        # ui.messageBox(json.dumps(neu_server.get_entity_properties(analysis)))
+                        neu_server.set_entity_properties(analysis, {'isVisible': False})
+                except:
+                    pass
 
             # Set viewport and rotation.
             shouldUpdateViewport = False

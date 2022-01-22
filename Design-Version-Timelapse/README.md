@@ -29,10 +29,12 @@ self._end = int(dataFile.versionId.split('version=')[1]) # Ending version number
 self._fixCamera = True # Use a consistent camera zoom/offset across versions (if False, will adjust camera to fit model boundaries for each version, I think it looks better set to True)
 self._turnOffSectionAnalysis = True # Turning off section analysis gives better quality animations.
 self._rotate = True # Add model rotation to exported frames.
+self._rotationDirection = 1 # Use -1 to reverse rotation direction.
 self._framesPerRotation = 250 # Number of frames for one complete rotation of model.
 self._finalFrames = 0 # Number of frames of the final version to add to end of sequence.
 # Save current camera target (or override), this only matters if using fixCamera = True.
 camera = app.activeViewport.camera
+# These should all be in cm
 self._cameraTarget = camera.target.copy() # adsk.core.Point3D.create(0, 0, 0)
 self._cameraOffset = self._cameraTarget.vectorTo(camera.eye) # adsk.core.Vector3D.create(1, 1, 1)
 self._cameraExtents = camera.viewExtents # Radius of bounding sphere to fit camera view to.
