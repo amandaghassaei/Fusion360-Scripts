@@ -501,7 +501,7 @@ class HistoryTimelapse:
 def run(context):
     global timelapse
     try:
-        ui.messageBox('WARNING: This script will make changes to your file (e.g. break links to referenced components).  You may want to run this on a copy of your design.')
+        ui.messageBox('WARNING: This script will make changes to your file (e.g. break links to referenced components).  You may want to run this on a copy of your design.  You can quit Fusion now to stop the script if you are unsure about continuing.')
         product = app.activeProduct
         design = adsk.fusion.Design.cast(product)
         if not design:
