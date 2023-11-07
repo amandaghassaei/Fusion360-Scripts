@@ -1,5 +1,6 @@
 #Author-Amanda Ghassaei
 #Description-Spinning animation of design
+from enum import StrEnum
 
 import adsk.core, adsk.fusion, traceback, math, os
 
@@ -15,6 +16,11 @@ zoomEndInputs = []
 
 # Keep the frameRecorder object in global namespace.
 frameRecorder = None
+
+class RotationAxis(StrEnum):
+    X = "X"
+    Y = "Y"
+    Z = "Z"
 
 # Event handler for the inputChanged event.
 class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
@@ -51,6 +57,14 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
             frameRecorder.zoomEnd = input.value
         elif input.id == 'animateZoom':
             frameRecorder.animateZoom = input.value
+        elif input.id == 'upAxis':
+            if input.selectedItem.name == 'Y':
+                frameRecorder.upAxis = RotationAxis.Y
+            elif input.selectedItem.name == 'Z':
+                frameRecorder.upAxis = RotationAxis.Z
+            else:
+                raise Exception("Invalid up axis selected")
+
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -73,7 +87,15 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                     frameRecorder.framesPerRotation = input.value
                 elif input.id == 'numRotations':
                     frameRecorder.numRotations = input.value
-
+                elif input.id == 'upAxis':
+                    if not input:
+                        raise Exception("No up axis selected")
+                    elif input.selectedItem.name == 'Y':
+                        frameRecorder.upAxis = RotationAxis.Y
+                    elif input.selectedItem.name == 'Z':
+                        frameRecorder.upAxis = RotationAxis.Z
+                    else:
+                        raise Exception("Invalid up axis selected")
             frameRecorder.collectFrames()
 
             args.isValidResult = True
@@ -133,6 +155,11 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 1, max_int, 1, frameRecorder.framesPerRotation)
             inputs.addFloatSpinnerCommandInput('numRotations', 'Num Rotations', '', neg_infinity, pos_infinity, 0.1, frameRecorder.numRotations)
             # Camera params.
+            dropdown = inputs.addDropDownCommandInput('upAxis', 'Up Vector', adsk.core.DropDownStyles.TextListDropDownStyle)
+            dropdownItems = dropdown.listItems
+            dropdownItems.add('Y', True)  # Default to Y Up
+            dropdownItems.add('Z', False)
+
             inputs.addFloatSpinnerCommandInput('centerStartX', 'Center X', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerStart[0])
             inputs.addFloatSpinnerCommandInput('centerStartY', 'Center Y', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerStart[1])
             inputs.addFloatSpinnerCommandInput('centerStartZ', 'Center Z', units, neg_infinity, pos_infinity, 0.1, frameRecorder.centerStart[2])
@@ -164,6 +191,7 @@ class FrameRecorder:
         self._height = 2000
         self._framesPerRotation = 25
         self._numRotations = 1
+        self._upAxis = RotationAxis.Y
 
         viewport = app.activeViewport
         camera = viewport.camera
@@ -277,6 +305,25 @@ class FrameRecorder:
     def numRotations(self, value):
         self._numRotations = value
 
+    @property
+    def upAxis(self):
+        return self._upAxis
+    @upAxis.setter
+    def upAxis(self, value):
+        self._upAxis = value
+        self.updateCamera()
+
+    @property
+    def upVector(self):
+        if self._upAxis == RotationAxis.X:
+            return adsk.core.Vector3D.create(1, 0, 0)
+        elif self._upAxis == RotationAxis.Y:
+            return adsk.core.Vector3D.create(0, 1, 0)
+        elif self._upAxis == RotationAxis.Z:
+            return adsk.core.Vector3D.create(0, 0, 1)
+        else:
+            raise Exception("Invalid up axis")
+
     def updateCameraTarget(self, x, y, z):
         viewport = app.activeViewport
         camera = viewport.camera
@@ -296,8 +343,23 @@ class FrameRecorder:
         camera.eye = offset
         camera.viewExtents = cameraExtents
         # Set camera property to trigger update.
-        camera.upVector = adsk.core.Vector3D.create(0, 1, 0)
+        camera.upVector = self.upVector
         viewport.camera = camera
+
+    def _rotateAroundAxis(self, camera, angle):
+        eye = camera.eye
+        cos = math.cos(angle)
+        sin = math.sin(angle)
+
+        if self.upAxis == RotationAxis.X:
+            raise NotImplementedError("X axis rotation not yet implemented")
+        elif self.upAxis == RotationAxis.Y:
+            camera.eye = adsk.core.Point3D.create(eye.x * cos - eye.z * sin, eye.y, eye.x * sin + eye.z * cos)
+        elif self.upAxis == RotationAxis.Z:
+            camera.eye = adsk.core.Point3D.create(eye.x * cos - eye.y * sin, eye.x * sin + eye.y * cos, eye.z)
+        # Set camera property to trigger update.
+        camera.upVector = self.upVector
+        return camera
 
     def collectFrames(self):
         width = self.width
@@ -325,17 +387,11 @@ class FrameRecorder:
             offset.translateBy(self._cameraOffset)
             camera.eye = offset
             camera.viewExtents = zoomEnd * t + zoomStart * (1 - t)
-            # Rotate camera around y axis.
+            # Rotate camera around axis.
             angle = math.pi * 2.0 * i / framesPerRotation
             if numRotations < 0:
                 angle = angle * -1.0
-            eye = camera.eye
-            cos = math.cos(angle)
-            sin = math.sin(angle)
-            camera.eye = adsk.core.Point3D.create(eye.x * cos + eye.z * sin, eye.y, - eye.x * sin + eye.z * cos)
-            # Set camera property to trigger update.
-            camera.upVector = adsk.core.Vector3D.create(0, 1, 0)
-            viewport.camera = camera
+            viewport.camera = self._rotateAroundAxis(camera, angle)
 
             # Save image.
             success = app.activeViewport.saveAsImageFile(outputPath + 'Spin_Animation_' + filename + '/' + filename + '_' + str(i) + '.png', width, height)
