@@ -1,6 +1,6 @@
 # Fusion360 Scripts
 
-This repo contains a number of Fusion360 scripts.  More info about each script is given in the README.md inside each folder.
+This repo contains a number of Fusion360 scripts.  More info about each script is given in the README.md inside each folder. Pull Requests welcome!
 
 ## [Design Version Timelapse](Design-Version-Timelapse/)
 
@@ -56,7 +56,7 @@ After all the still frames (with the name FILENAME_###.png) are generated, I use
 
 ```ffmpeg -r 30 -i PATH_TO_FRAMES/FILENAME_%d.png -c:v libx264 -preset slow -crf 22 -pix_fmt yuv420p -an OUTPUT_DIRECTORY/animation.mp4```
 
-`-r 30` sets the framerate to 60 fps  
+`-r 30` sets the framerate to 30 fps  
 `-c:v libx264 -preset slow -crf 22` encodes as h.264 with better compression settings  
 `-pix_fmt yuv420p` makes it compatible with the web browser  
 `-an` creates a video with no audio  
