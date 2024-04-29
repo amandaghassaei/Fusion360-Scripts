@@ -5,7 +5,7 @@ A script to turn your Fusion360 version history (i.e. all your previous saves) i
 
 This script can be configured to save at any image resolution and has a few other configurable controls including spin and other camera stabilization settings.  See [Use](#Use) for more details.  
 
-**WARNING - USE AT YOUR OWN RISK.**  This script is opens old versions of your design and takes screenshots.  It should not do any saving operations or promote old versions.  However, things in Fusion's API could change at any point without warning and you never know what repercussions that might have.  So please test this out on something you don't care much about first.  I use this on my own files and have had no issues, but if you have a very important document you want to run this on, you might want to at least save a copy of it before proceeding.
+⚠️ **WARNING - USE AT YOUR OWN RISK** ⚠️ This script is opens old versions of your design and takes screenshots.  It should not do any saving operations or promote old versions.  However, things in Fusion's API could change at any point without warning and you never know what repercussions that might have.  So please test this out on something you don't care much about first.  I use this on my own files and have had no issues, but if you have a very important document you want to run this on, you might want to at least save a copy of it before proceeding.
 
 
 ## Installation
