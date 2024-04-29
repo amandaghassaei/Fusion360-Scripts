@@ -1,6 +1,8 @@
 # Fusion360 Scripts
 
-This repo contains a number of Fusion360 scripts.  More info about each script is given in the README.md inside each folder. Pull Requests welcome!
+This repo contains a number of Fusion360 scripts.  More info about each script is given in the README.md inside each folder.
+
+I'm very curious about how these scripts are being used, feel free to share your animations in the [Show and Tell discussion thread](https://github.com/amandaghassaei/Fusion360-Scripts/discussions/9).  Also, pull requests welcome!
 
 ## [Design Version Timelapse](Design-Version-Timelapse/)
 
