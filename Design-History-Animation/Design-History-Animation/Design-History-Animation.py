@@ -1,8 +1,8 @@
 #Author-Amanda Ghassaei
 #Description-Turn your Fusion360 design history timeline into an animation
 #Modified by-Colin Holloway
-#Modification date-2026-10-26
-#Changes-XYZ rotation selection, conditional frame validation, Windows paths, unique axis-labelled output folders, original camera view restoration, and automatic timeline-group expansion/restoration.
+#Modification date-2026-10-27
+#Changes-XYZ rotation selection, conditional frame validation, Windows paths, unique axis-labelled output folders, original camera view restoration, automatic timeline-group expansion/restoration, fractional total-rotation control, stationary final frames, and selectable clockwise/anti-clockwise rotation, cancellable progress reporting, and timeline-marker restoration.
 
 import adsk.core, adsk.fusion, traceback, math, os
 
@@ -49,6 +49,11 @@ def restoreTimelineGroups():
     finally:
         expandedTimelineGroups = []
 
+# Colin Holloway | 2026-10-27: Internal cooperative cancellation signal.
+class AnimationCancelled(Exception):
+    pass
+
+
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
         super().__init__()
@@ -79,14 +84,19 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                 # Colin Holloway | 2026-10-26: Read the selected X/Y/Z rotation axis from the dialog.
                 elif input.id == 'rotationAxis':
                     timelapse.rotationAxis = input.selectedItem.name
-                elif input.id == 'framesPerRotation':
-                    timelapse.framesPerRotation = input.value
+                # Colin Holloway | 2026-10-26: Capture the selected orbit direction.
+                elif input.id == 'rotationDirection':
+                    timelapse.rotationDirection = input.selectedItem.name
+                elif input.id == 'numberOfRotations':
+                    timelapse.numberOfRotations = input.value
                 elif input.id == 'finalFrames':
                     timelapse.finalFrames = input.value
 
-            timelapse.collectFrames()
-
-            args.isValidResult = True
+            completed = timelapse.collectFrames()
+            args.isValidResult = bool(completed)
+        except AnimationCancelled:
+            # Colin Holloway | 2026-10-27: User cancellation is not an error.
+            args.isValidResult = False
         except:
             if ui:
                 ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
@@ -107,7 +117,7 @@ class CommandDestroyHandler(adsk.core.CommandEventHandler):
                 ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
 
-# Colin Holloway | 2026-10-26: Allow zero rotation frames only when rotation is disabled.
+# Colin Holloway | 2026-10-26: Validate the requested total rotations.
 class CommandValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
     def __init__(self):
         super().__init__()
@@ -115,9 +125,9 @@ class CommandValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
     def notify(self, args):
         inputs = args.firingEvent.sender.commandInputs
         rotate = inputs.itemById('rotate').value
-        frames = inputs.itemById('framesPerRotation').value
+        rotations = inputs.itemById('numberOfRotations').value
         # Zero is valid when rotation is disabled, but not when enabled.
-        args.areInputsValid = (not rotate) or (frames >= 1)
+        args.areInputsValid = (not rotate) or (rotations > 0)
 
 
 class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -159,8 +169,12 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             axisInput = inputs.addRadioButtonGroupCommandInput('rotationAxis', 'Axis of Rotation')
             for axis in ('X', 'Y', 'Z'):
                 axisInput.listItems.add(axis, axis == timelapse.rotationAxis)
-            # Colin Holloway | 2026-10-26: Permit zero in spinner; validator enforces positive frames when rotating.
-            inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 0, max_int, 1, timelapse.framesPerRotation)
+            # Colin Holloway | 2026-10-26: Add clockwise/anti-clockwise radio buttons.
+            directionInput = inputs.addRadioButtonGroupCommandInput('rotationDirection', 'Rotation Direction')
+            for direction in ('Clockwise', 'Anti-clockwise'):
+                directionInput.listItems.add(direction, direction == timelapse.rotationDirection)
+            # Colin Holloway | 2026-10-26: Select total (including fractional) revolutions instead of frames per revolution.
+            inputs.addFloatSpinnerCommandInput('numberOfRotations', 'Number of Rotations', '', 0.0, 1000000.0, 0.25, timelapse.numberOfRotations)
             inputs.addIntegerSpinnerCommandInput('finalFrames', 'Num Final Frames', 0, max_int, 1, timelapse.finalFrames)
 
         except:
@@ -185,7 +199,9 @@ class HistoryTimelapse:
         self._rotate = True
         # Colin Holloway | 2026-10-26: Default to the original Y-axis rotation behaviour.
         self._rotationAxis = 'Y'
-        self._framesPerRotation = 500
+        self._numberOfRotations = 1.0
+        # Colin Holloway | 2026-10-26: Default orbit direction.
+        self._rotationDirection = 'Clockwise'
         self._finalFrames = 0
         self._design = design
 
@@ -267,12 +283,22 @@ class HistoryTimelapse:
             raise ValueError('Invalid rotation axis: ' + str(value))
         self._rotationAxis = value
 
+    # Colin Holloway | 2026-10-26: Expose rotation direction to the dialog and camera.
     @property
-    def framesPerRotation(self):
-        return self._framesPerRotation
-    @framesPerRotation.setter
-    def framesPerRotation(self, value):
-        self._framesPerRotation = value
+    def rotationDirection(self):
+        return self._rotationDirection
+    @rotationDirection.setter
+    def rotationDirection(self, value):
+        if value not in ('Clockwise', 'Anti-clockwise'):
+            raise ValueError('Invalid rotation direction: ' + str(value))
+        self._rotationDirection = value
+
+    @property
+    def numberOfRotations(self):
+        return self._numberOfRotations
+    @numberOfRotations.setter
+    def numberOfRotations(self, value):
+        self._numberOfRotations = value
 
     @property
     def finalFrames(self):
@@ -308,7 +334,10 @@ class HistoryTimelapse:
         # Colin Holloway | 2026-10-26: Create axis-labelled output folders with automatic run numbering.
         # Include the selected axis and avoid overwriting previous runs.
         axisLabel = self.rotationAxis if self.rotate else 'No_Rotation'
-        folderName = 'History_Animation_{}_{}'.format(filename, axisLabel)
+        # Colin Holloway | 2026-10-26: Separate CW and CCW runs in distinct folders.
+        directionLabel = ('CW' if self.rotationDirection == 'Clockwise' else 'CCW') if self.rotate else None
+        folderName = ('History_Animation_{}_{}_{}'.format(filename, axisLabel, directionLabel)
+                      if self.rotate else 'History_Animation_{}_{}'.format(filename, axisLabel))
         outputFolder = os.path.join(outputPath, folderName)
         runNumber = 2
         while os.path.exists(outputFolder):
@@ -319,8 +348,33 @@ class HistoryTimelapse:
         timeline = self.timeline
         documents = app.documents
         interpolationFrames = self.interpolationFrames
-        framesPerRotation = self.framesPerRotation if self.rotate else 0
+        numberOfRotations = self.numberOfRotations if self.rotate else 0.0
         finalFrames = self.finalFrames
+        # Colin Holloway | 2026-10-27: Restore the timeline marker
+        # after success, cancellation or failure, rather than leaving it at the end.
+        initialMarkerPosition = timeline.markerPosition
+
+        # Colin Holloway | 2026-10-26: Pre-count only timeline operations that actually export frames.
+        # Match the animation loop's exclusions so fractional rotations finish at the requested angle.
+        skippedTypes = {'Occurrence', 'Sketch', 'ConstructionPlane', 'ConstructionAxis',
+                        'ConstructionPoint', 'ThreadFeature', 'Combine', 'Move'}
+        exportIndices = []
+        for index in range(start, end):
+            try:
+                item = timeline.item(index)
+                if item.isSuppressed or item.isGroup:
+                    continue
+                entity = item.entity
+                if not entity or type(entity).__name__ in skippedTypes:
+                    continue
+                exportIndices.append(index)
+            except:
+                continue
+        # Colin Holloway | 2026-10-26: Exclude final hold frames from rotation.
+        # Only modelling/interpolation frames contribute to the requested revolutions.
+        totalFrames = len(exportIndices) * interpolationFrames
+        anglePerFrame = (2.0 * math.pi * numberOfRotations / totalFrames
+                         if totalFrames > 0 else 0.0)
 
         viewport = app.activeViewport
         # Colin Holloway | 2026-10-26: Snapshot supported camera properties for exact view restoration.
@@ -331,11 +385,28 @@ class HistoryTimelapse:
         initialUp = (initialCamera.upVector.x, initialCamera.upVector.y, initialCamera.upVector.z)
         initialExtents = initialCamera.viewExtents
         initialCameraType = initialCamera.cameraType
+        # Colin Holloway | 2026-10-27: Progress reflects actual export
+        # frames. Final hold frames are counted only when the last selected
+        # timeline item is eligible (matching the existing animation behaviour).
+        holdFrames = finalFrames if exportIndices and exportIndices[-1] == end - 1 else 0
+        expectedFrames = totalFrames + holdFrames
+        progress = None
+        num = 0
         try:
+            if expectedFrames:
+                progress = ui.createProgressDialog()
+                progress.isCancelButtonShown = True
+                progress.isBackgroundTranslucent = False
+                progress.show('Design History Animation',
+                              'Exporting frame %v of %m', 0, expectedFrames, 1)
+            # Pump Fusion's UI so the progress dialog's Cancel button responds.
+            adsk.doEvents()
+            if progress and progress.wasCancelled:
+                raise AnimationCancelled()
+
             viewport.fit()
             camera = viewport.camera
 
-            num = 0
             startingAngle = None
 
             for i in range(start, end):
@@ -486,86 +557,109 @@ class HistoryTimelapse:
                 originalAlphas = [comp.opacity for comp in alphaComponents]
                 # Calc number of interpolation frames for this feature.
                 _interpolationFrames = interpolationFrames if (i < end - 1) else (interpolationFrames + finalFrames)
-                for j in range(_interpolationFrames):
-                    # Interpolate parameters.
-                    for k in range(len(interpolatedParameters)):
-                        value = stepSizes[k] * (j + 1) + stepOffsets[k]
-                        if abs(value) > abs(originalValues[k]):
-                            value = originalValues[k]
-                        # ui.messageBox(str(value))
-                        interpolatedParameters[k].value = value
-                        # Force a recompute (needed for symmetric Revolves for some reason?).
-                        if classname == 'RevolveFeature':
-                            entity.extentDefinition.isSymmetric = entity.extentDefinition.isSymmetric
-                    for k in range(len(alphaComponents)):
-                        value = originalAlphas[k] * (j + 1) / interpolationFrames
-                        if abs(value) > abs(originalAlphas[k]):
-                            value = originalAlphas[k]
-                        # ui.messageBox(str(value))
-                        alphaComponents[k].opacity = value
+                # Colin Holloway | 2026-10-27: Protect each feature's
+                # temporary parameter/opacity changes with finally, including
+                # when cancellation occurs during frame export.
+                try:
+                    for j in range(_interpolationFrames):
+                        # Interpolate parameters.
+                        adsk.doEvents()
+                        if progress and progress.wasCancelled:
+                            raise AnimationCancelled()
+                        for k in range(len(interpolatedParameters)):
+                            value = stepSizes[k] * (j + 1) + stepOffsets[k]
+                            if abs(value) > abs(originalValues[k]):
+                                value = originalValues[k]
+                            # ui.messageBox(str(value))
+                            interpolatedParameters[k].value = value
+                            # Force a recompute (needed for symmetric Revolves for some reason?).
+                            if classname == 'RevolveFeature':
+                                entity.extentDefinition.isSymmetric = entity.extentDefinition.isSymmetric
+                        for k in range(len(alphaComponents)):
+                            value = originalAlphas[k] * (j + 1) / interpolationFrames
+                            if abs(value) > abs(originalAlphas[k]):
+                                value = originalAlphas[k]
+                            # ui.messageBox(str(value))
+                            alphaComponents[k].opacity = value
 
-                    # Colin Holloway | 2026-10-26: Orbit around selected global axis and camera target.
-                    # Orbit the camera around the selected global axis, through
-                    # the camera target. Rotate the up vector as well so the
-                    # camera orientation remains valid for X, Y and Z orbits.
-                    if framesPerRotation > 0:
-                        angle = 2.0 * math.pi / framesPerRotation
-                        camera = viewport.camera
-                        target = camera.target
-                        eye = camera.eye
-                        up = camera.upVector
-                        axis = self.rotationAxis
-                        c = math.cos(angle)
-                        s = math.sin(angle)
+                        # Colin Holloway | 2026-10-26: Orbit around selected global axis and camera target.
+                        # Orbit the camera around the selected global axis, through
+                        # the camera target. Rotate the up vector as well so the
+                        # camera orientation remains valid for X, Y and Z orbits.
+                        # Colin Holloway | 2026-10-26: Rotate only during modelling frames.
+                        # Final frames hold the last camera orientation without further rotation.
+                        if anglePerFrame > 0 and j < interpolationFrames:
+                            # Colin Holloway | 2026-10-26: Clockwise is negative
+                            # about the positive global axis (viewed toward the origin).
+                            angle = anglePerFrame * (-1.0 if self.rotationDirection == 'Clockwise' else 1.0)
+                            camera = viewport.camera
+                            target = camera.target
+                            eye = camera.eye
+                            up = camera.upVector
+                            axis = self.rotationAxis
+                            c = math.cos(angle)
+                            s = math.sin(angle)
 
-                        def rotateVector(x, y, z):
-                            # Rodrigues' formula for a principal Cartesian axis.
-                            if axis == 'X':
-                                return (x, y * c - z * s, y * s + z * c)
-                            if axis == 'Y':
-                                return (x * c + z * s, y, -x * s + z * c)
-                            return (x * c - y * s, x * s + y * c, z)
+                            def rotateVector(x, y, z):
+                                # Rodrigues' formula for a principal Cartesian axis.
+                                if axis == 'X':
+                                    return (x, y * c - z * s, y * s + z * c)
+                                if axis == 'Y':
+                                    return (x * c + z * s, y, -x * s + z * c)
+                                return (x * c - y * s, x * s + y * c, z)
 
-                        dx, dy, dz = rotateVector(
-                            eye.x - target.x, eye.y - target.y, eye.z - target.z)
-                        ux, uy, uz = rotateVector(up.x, up.y, up.z)
-                        camera.eye = adsk.core.Point3D.create(
-                            target.x + dx, target.y + dy, target.z + dz)
-                        camera.upVector = adsk.core.Vector3D.create(ux, uy, uz)
-                        viewport.camera = camera
+                            dx, dy, dz = rotateVector(
+                                eye.x - target.x, eye.y - target.y, eye.z - target.z)
+                            ux, uy, uz = rotateVector(up.x, up.y, up.z)
+                            camera.eye = adsk.core.Point3D.create(
+                                target.x + dx, target.y + dy, target.z + dz)
+                            camera.upVector = adsk.core.Vector3D.create(ux, uy, uz)
+                            viewport.camera = camera
 
-                    # Save image.
-                    # Colin Holloway | 2026-10-26: Join image/OBJ paths safely without requiring a trailing slash.
-                    outputFilename = os.path.join(outputFolder, filename + '_' + str(num))
-                    success = app.activeViewport.saveAsImageFile(outputFilename + '.png', width, height)
-                    if not success:
-                        ui.messageBox('Failed saving viewport image.')
-                
-                    # Save obj file if requested
-                    if saveObj:
-                        success = self.saveObjFile(outputFilename + '.obj')
+                        # Save image.
+                        # Colin Holloway | 2026-10-26: Join image/OBJ paths safely without requiring a trailing slash.
+                        outputFilename = os.path.join(outputFolder, filename + '_' + str(num))
+                        success = app.activeViewport.saveAsImageFile(outputFilename + '.png', width, height)
                         if not success:
-                            ui.messageBox('Failed saving obj file.')
+                            ui.messageBox('Failed saving viewport image.')
+                
+                        # Save obj file if requested
+                        if saveObj:
+                            success = self.saveObjFile(outputFilename + '.obj')
+                            if not success:
+                                ui.messageBox('Failed saving obj file.')
 
-                    num += 1
+                        num += 1
+                        if progress:
+                            progress.progressValue = num
 
-                # Reset parameters.
-                for k in range(len(interpolatedParameters)):
-                    interpolatedParameters[k].value = originalValues[k]
-                    interpolatedParameters[k].expression = originalExpressions[k]
-                for k in range(len(alphaComponents)):
-                    alphaComponents[k].opacity = originalAlphas[k]
+                finally:
+                    # Reset parameters.
+                    for k in range(len(interpolatedParameters)):
+                        interpolatedParameters[k].value = originalValues[k]
+                        interpolatedParameters[k].expression = originalExpressions[k]
+                    for k in range(len(alphaComponents)):
+                        alphaComponents[k].opacity = originalAlphas[k]
+            return True
+        except AnimationCancelled:
+            return False
         finally:
-            # Colin Holloway | 2026-10-26: Restore original camera even if rendering fails.
-            # Always restore the user's exact initial view, including when
-            # rendering fails or the selected frame count is not a full orbit.
-            restoredCamera = viewport.camera
-            restoredCamera.eye = adsk.core.Point3D.create(*initialEye)
-            restoredCamera.target = adsk.core.Point3D.create(*initialTarget)
-            restoredCamera.upVector = adsk.core.Vector3D.create(*initialUp)
-            restoredCamera.viewExtents = initialExtents
-            restoredCamera.cameraType = initialCameraType
-            viewport.camera = restoredCamera
+            # Colin Holloway | 2026-10-27: Close progress and restore
+            # the original camera and timeline marker on every exit path.
+            try:
+                if progress:
+                    progress.hide()
+            finally:
+                try:
+                    restoredCamera = viewport.camera
+                    restoredCamera.eye = adsk.core.Point3D.create(*initialEye)
+                    restoredCamera.target = adsk.core.Point3D.create(*initialTarget)
+                    restoredCamera.upVector = adsk.core.Vector3D.create(*initialUp)
+                    restoredCamera.viewExtents = initialExtents
+                    restoredCamera.cameraType = initialCameraType
+                    viewport.camera = restoredCamera
+                finally:
+                    timeline.markerPosition = initialMarkerPosition
 
     def saveObjFile(self, file):
         '''Export an .obj file from the root component'''
