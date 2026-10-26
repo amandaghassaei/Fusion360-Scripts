@@ -1,5 +1,8 @@
 #Author-Amanda Ghassaei
 #Description-Turn your Fusion360 design history timeline into an animation
+#Modified by-Colin Holloway
+#Modification date-2026-10-27
+#Changes-XYZ rotation selection, conditional frame validation, Windows paths, unique axis-labelled output folders, original camera view restoration, automatic timeline-group expansion/restoration, fractional total-rotation control, stationary final frames, and selectable clockwise/anti-clockwise rotation, cancellable progress reporting, and timeline-marker restoration.
 
 import adsk.core, adsk.fusion, traceback, math, os
 
@@ -12,6 +15,44 @@ handlers = []
 
 # Keep the timelapse object in global namespace.
 timelapse = None
+
+# Colin Holloway | 2026-10-26: Remember only groups this run expands.
+# Restoring these on command destruction also handles the Cancel button.
+expandedTimelineGroups = []
+
+
+def expandTimelineGroups(timeline):
+    # Colin Holloway | 2026-10-26: Expand groups BEFORE the dialog
+    # calculates its timeline range; collapsed groups count as one timeline step.
+    global expandedTimelineGroups
+    expandedTimelineGroups = []
+    groups = timeline.timelineGroups
+    try:
+        for index in range(groups.count):
+            group = groups.item(index)
+            if group.isCollapsed:
+                group.isCollapsed = False
+                expandedTimelineGroups.append(group)
+    except:
+        restoreTimelineGroups()
+        raise
+
+
+def restoreTimelineGroups():
+    # Colin Holloway | 2026-10-26: Re-collapse only originally
+    # collapsed groups; leave groups originally expanded untouched.
+    global expandedTimelineGroups
+    try:
+        for group in reversed(expandedTimelineGroups):
+            if group.isValid:
+                group.isCollapsed = True
+    finally:
+        expandedTimelineGroups = []
+
+# Colin Holloway | 2026-10-27: Internal cooperative cancellation signal.
+class AnimationCancelled(Exception):
+    pass
+
 
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -40,14 +81,22 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
                     timelapse.interpolationFrames = input.value
                 elif input.id == 'rotate':
                     timelapse.rotate = input.value
-                elif input.id == 'framesPerRotation':
-                    timelapse.framesPerRotation = input.value
+                # Colin Holloway | 2026-10-26: Read the selected X/Y/Z rotation axis from the dialog.
+                elif input.id == 'rotationAxis':
+                    timelapse.rotationAxis = input.selectedItem.name
+                # Colin Holloway | 2026-10-26: Capture the selected orbit direction.
+                elif input.id == 'rotationDirection':
+                    timelapse.rotationDirection = input.selectedItem.name
+                elif input.id == 'numberOfRotations':
+                    timelapse.numberOfRotations = input.value
                 elif input.id == 'finalFrames':
                     timelapse.finalFrames = input.value
 
-            timelapse.collectFrames()
-
-            args.isValidResult = True
+            completed = timelapse.collectFrames()
+            args.isValidResult = bool(completed)
+        except AnimationCancelled:
+            # Colin Holloway | 2026-10-27: User cancellation is not an error.
+            args.isValidResult = False
         except:
             if ui:
                 ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
@@ -57,12 +106,28 @@ class CommandDestroyHandler(adsk.core.CommandEventHandler):
         super().__init__()
     def notify(self, args):
         try:
+            # Colin Holloway | 2026-10-26: Restore original timeline
+            # group visibility on completion, cancellation, or execution failure.
+            restoreTimelineGroups()
             # When the command is done, terminate the script.
             # This will release all globals which will remove all event handlers.
             adsk.terminate()
         except:
             if ui:
                 ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+
+
+# Colin Holloway | 2026-10-26: Validate the requested total rotations.
+class CommandValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
+    def __init__(self):
+        super().__init__()
+
+    def notify(self, args):
+        inputs = args.firingEvent.sender.commandInputs
+        rotate = inputs.itemById('rotate').value
+        rotations = inputs.itemById('numberOfRotations').value
+        # Zero is valid when rotation is disabled, but not when enabled.
+        args.areInputsValid = (not rotate) or (rotations > 0)
 
 
 class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -74,10 +139,14 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd.isRepeatable = False
             onExecute = CommandExecuteHandler()
             cmd.execute.add(onExecute)
+            # Colin Holloway | 2026-10-26: Register rotation-dependent input validation.
+            onValidate = CommandValidateInputsHandler()
+            cmd.validateInputs.add(onValidate)
             onDestroy = CommandDestroyHandler()
             cmd.destroy.add(onDestroy)
             # Keep the handler referenced beyond this function.
             handlers.append(onExecute)
+            handlers.append(onValidate)
             handlers.append(onDestroy)
 
             max_int = 2147483647
@@ -96,7 +165,16 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.itemById('range').valueTwo = timelapse.end
             inputs.addIntegerSpinnerCommandInput('interpolationFrames', 'Frames per Operation', 1, max_int, 1, timelapse.interpolationFrames)
             inputs.addBoolValueInput('rotate', 'Should Rotate Design', True, '', timelapse.rotate)
-            inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 1, max_int, 1, timelapse.framesPerRotation)
+            # Colin Holloway | 2026-10-26: Add mutually exclusive X/Y/Z rotation-axis radio buttons.
+            axisInput = inputs.addRadioButtonGroupCommandInput('rotationAxis', 'Axis of Rotation')
+            for axis in ('X', 'Y', 'Z'):
+                axisInput.listItems.add(axis, axis == timelapse.rotationAxis)
+            # Colin Holloway | 2026-10-26: Add clockwise/anti-clockwise radio buttons.
+            directionInput = inputs.addRadioButtonGroupCommandInput('rotationDirection', 'Rotation Direction')
+            for direction in ('Clockwise', 'Anti-clockwise'):
+                directionInput.listItems.add(direction, direction == timelapse.rotationDirection)
+            # Colin Holloway | 2026-10-26: Select total (including fractional) revolutions instead of frames per revolution.
+            inputs.addFloatSpinnerCommandInput('numberOfRotations', 'Number of Rotations', '', 0.0, 1000000.0, 0.25, timelapse.numberOfRotations)
             inputs.addIntegerSpinnerCommandInput('finalFrames', 'Num Final Frames', 0, max_int, 1, timelapse.finalFrames)
 
         except:
@@ -109,7 +187,8 @@ class HistoryTimelapse:
 
         # Set initial values.
         self._filename = dataFile.name
-        self._outputPath = os.path.expanduser("~/Desktop/")
+        # Colin Holloway | 2026-10-26: Normalize the default Desktop path for Windows.
+        self._outputPath = os.path.normpath(os.path.join(os.path.expanduser("~"), "Desktop"))
         self._saveObj = False
         self._timeline = design.timeline
         self._width = 2000
@@ -118,7 +197,11 @@ class HistoryTimelapse:
         self._end = self._timeline.markerPosition
         self._interpolationFrames = 5
         self._rotate = True
-        self._framesPerRotation = 500
+        # Colin Holloway | 2026-10-26: Default to the original Y-axis rotation behaviour.
+        self._rotationAxis = 'Y'
+        self._numberOfRotations = 1.0
+        # Colin Holloway | 2026-10-26: Default orbit direction.
+        self._rotationDirection = 'Clockwise'
         self._finalFrames = 0
         self._design = design
 
@@ -191,11 +274,31 @@ class HistoryTimelapse:
         self._rotate = value
 
     @property
-    def framesPerRotation(self):
-        return self._framesPerRotation
-    @framesPerRotation.setter
-    def framesPerRotation(self, value):
-        self._framesPerRotation = value
+    # Colin Holloway | 2026-10-26: Expose and validate the selected rotation axis.
+    def rotationAxis(self):
+        return self._rotationAxis
+    @rotationAxis.setter
+    def rotationAxis(self, value):
+        if value not in ('X', 'Y', 'Z'):
+            raise ValueError('Invalid rotation axis: ' + str(value))
+        self._rotationAxis = value
+
+    # Colin Holloway | 2026-10-26: Expose rotation direction to the dialog and camera.
+    @property
+    def rotationDirection(self):
+        return self._rotationDirection
+    @rotationDirection.setter
+    def rotationDirection(self, value):
+        if value not in ('Clockwise', 'Anti-clockwise'):
+            raise ValueError('Invalid rotation direction: ' + str(value))
+        self._rotationDirection = value
+
+    @property
+    def numberOfRotations(self):
+        return self._numberOfRotations
+    @numberOfRotations.setter
+    def numberOfRotations(self, value):
+        self._numberOfRotations = value
 
     @property
     def finalFrames(self):
@@ -228,93 +331,145 @@ class HistoryTimelapse:
         height = self.height
         filename = self.filename
         outputPath = self.outputPath
+        # Colin Holloway | 2026-10-26: Create axis-labelled output folders with automatic run numbering.
+        # Include the selected axis and avoid overwriting previous runs.
+        axisLabel = self.rotationAxis if self.rotate else 'No_Rotation'
+        # Colin Holloway | 2026-10-26: Separate CW and CCW runs in distinct folders.
+        directionLabel = ('CW' if self.rotationDirection == 'Clockwise' else 'CCW') if self.rotate else None
+        folderName = ('History_Animation_{}_{}_{}'.format(filename, axisLabel, directionLabel)
+                      if self.rotate else 'History_Animation_{}_{}'.format(filename, axisLabel))
+        outputFolder = os.path.join(outputPath, folderName)
+        runNumber = 2
+        while os.path.exists(outputFolder):
+            outputFolder = os.path.join(outputPath, '{}_Run_{:02d}'.format(folderName, runNumber))
+            runNumber += 1
+        os.makedirs(outputFolder)
         saveObj = self.saveObj
         timeline = self.timeline
         documents = app.documents
         interpolationFrames = self.interpolationFrames
-        framesPerRotation = self.framesPerRotation if self.rotate else 0
+        numberOfRotations = self.numberOfRotations if self.rotate else 0.0
         finalFrames = self.finalFrames
+        # Colin Holloway | 2026-10-27: Restore the timeline marker
+        # after success, cancellation or failure, rather than leaving it at the end.
+        initialMarkerPosition = timeline.markerPosition
 
-        viewport = app.activeViewport
-        viewport.fit()
-        camera = viewport.camera
-
-        num = 0
-        startingAngle = None
-
-        for i in range(start, end):
+        # Colin Holloway | 2026-10-26: Pre-count only timeline operations that actually export frames.
+        # Match the animation loop's exclusions so fractional rotations finish at the requested angle.
+        skippedTypes = {'Occurrence', 'Sketch', 'ConstructionPlane', 'ConstructionAxis',
+                        'ConstructionPoint', 'ThreadFeature', 'Combine', 'Move'}
+        exportIndices = []
+        for index in range(start, end):
             try:
-                # Get feature at current timeline index.
-                item = timeline.item(i)
-
-                # If item is suppressed, ignore.
-                if item.isSuppressed:
+                item = timeline.item(index)
+                if item.isSuppressed or item.isGroup:
                     continue
-                # If item is group, ignore.
-                if item.isGroup:
-                    continue
-                # # If item has an error, ignore.
-                # TODO: Move is throwing error here.
-                # if item.healthState == 2: # ErrorFeatureHealthState
-                #     continue
-
                 entity = item.entity
-                # TODO: Move TimelineObject is not working properly here.
-                if not entity:
+                if not entity or type(entity).__name__ in skippedTypes:
                     continue
-                classname = type(entity).__name__
-
-                # Some operations should be ignored as they can't be easily animated.
-                # TODO: feature handling list is not exhaustive, just what I frequently use.
-                if classname == 'Occurrence':
-                    continue
-                    # # We only allow a fade in for Occurrence if this is the first item inserted into the design.
-                    # if i > 0:
-                    #     continue
-                    # # And if insert operation not immediately folled by a joint.
-                    # nextItem = type(timeline.item(i + 1).entity).__name__
-                    # if nextItem == 'Joint':
-                    #     continue
-                # If item is sketch, ignore.
-                if classname == 'Sketch':
-                    continue
-                if classname == 'ConstructionPlane':
-                    continue
-                if classname == 'ConstructionAxis':
-                    continue
-                if classname == 'ConstructionPoint':
-                    continue
-                if classname == 'ThreadFeature':
-                    continue
-                if classname == 'Combine':
-                    continue
-                # ui.messageBox(classname)
+                exportIndices.append(index)
             except:
                 continue
+        # Colin Holloway | 2026-10-26: Exclude final hold frames from rotation.
+        # Only modelling/interpolation frames contribute to the requested revolutions.
+        totalFrames = len(exportIndices) * interpolationFrames
+        anglePerFrame = (2.0 * math.pi * numberOfRotations / totalFrames
+                         if totalFrames > 0 else 0.0)
 
-            # Set marker position.
-            timeline.markerPosition = i + 1
+        viewport = app.activeViewport
+        # Colin Holloway | 2026-10-26: Snapshot supported camera properties for exact view restoration.
+        # Save independent values: Fusion Camera does not implement copy().
+        initialCamera = viewport.camera
+        initialEye = (initialCamera.eye.x, initialCamera.eye.y, initialCamera.eye.z)
+        initialTarget = (initialCamera.target.x, initialCamera.target.y, initialCamera.target.z)
+        initialUp = (initialCamera.upVector.x, initialCamera.upVector.y, initialCamera.upVector.z)
+        initialExtents = initialCamera.viewExtents
+        initialCameraType = initialCamera.cameraType
+        # Colin Holloway | 2026-10-27: Progress reflects actual export
+        # frames. Final hold frames are counted only when the last selected
+        # timeline item is eligible (matching the existing animation behaviour).
+        holdFrames = finalFrames if exportIndices and exportIndices[-1] == end - 1 else 0
+        expectedFrames = totalFrames + holdFrames
+        progress = None
+        num = 0
+        try:
+            if expectedFrames:
+                progress = ui.createProgressDialog()
+                progress.isCancelButtonShown = True
+                progress.isBackgroundTranslucent = False
+                progress.show('Design History Animation',
+                              'Exporting frame %v of %m', 0, expectedFrames, 1)
+            # Pump Fusion's UI so the progress dialog's Cancel button responds.
+            adsk.doEvents()
+            if progress and progress.wasCancelled:
+                raise AnimationCancelled()
 
-            # Get parameters to interpolate.
-            interpolatedParameters = []
-            stepSizes = []
-            stepOffsets = []
-            alphaComponents = []
-            if classname == 'ExtrudeFeature':
-                if self.isNumericExtent(entity.extentOne):
-                    param = entity.extentOne.distance
-                    interpolatedParameters.append(param)
-                    stepSizes.append(param.value / interpolationFrames)
-                    stepOffsets.append(0)
-                # At the very least we can fade it in if it's a new body/component.
-                elif entity.operation == 3 or entity.operation == 4: # NewBodyFeatureOperation or NewComponentFeatureOperation.
-                    bodies = entity.bodies
-                    for body in bodies:
-                        alphaComponents.append(body)
-                if entity.hasTwoExtents:
-                    # Handle side 2.
-                    if self.isNumericExtent(entity.extentTwo):
-                        param = entity.extentTwo.distance
+            viewport.fit()
+            camera = viewport.camera
+
+            startingAngle = None
+
+            for i in range(start, end):
+                try:
+                    # Get feature at current timeline index.
+                    item = timeline.item(i)
+
+                    # If item is suppressed, ignore.
+                    if item.isSuppressed:
+                        continue
+                    # If item is group, ignore.
+                    if item.isGroup:
+                        continue
+                    # # If item has an error, ignore.
+                    # TODO: Move is throwing error here.
+                    # if item.healthState == 2: # ErrorFeatureHealthState
+                    #     continue
+
+                    entity = item.entity
+                    # TODO: Move TimelineObject is not working properly here.
+                    if not entity:
+                        continue
+                    classname = type(entity).__name__
+
+                    # Some operations should be ignored as they can't be easily animated.
+                    # TODO: feature handling list is not exhaustive, just what I frequently use.
+                    if classname == 'Occurrence':
+                        continue
+                        # # We only allow a fade in for Occurrence if this is the first item inserted into the design.
+                        # if i > 0:
+                        #     continue
+                        # # And if insert operation not immediately folled by a joint.
+                        # nextItem = type(timeline.item(i + 1).entity).__name__
+                        # if nextItem == 'Joint':
+                        #     continue
+                    # If item is sketch, ignore.
+                    if classname == 'Sketch':
+                        continue
+                    if classname == 'ConstructionPlane':
+                        continue
+                    if classname == 'ConstructionAxis':
+                        continue
+                    if classname == 'ConstructionPoint':
+                        continue
+                    if classname == 'ThreadFeature':
+                        continue
+                    if classname == 'Combine':
+                        continue
+                    # ui.messageBox(classname)
+                except:
+                    continue
+
+                # Set marker position.
+                timeline.markerPosition = i + 1
+
+                # Get parameters to interpolate.
+                interpolatedParameters = []
+                stepSizes = []
+                stepOffsets = []
+                alphaComponents = []
+                if classname == 'ExtrudeFeature':
+                    if self.isNumericExtent(entity.extentOne):
+                        param = entity.extentOne.distance
                         interpolatedParameters.append(param)
                         stepSizes.append(param.value / interpolationFrames)
                         stepOffsets.append(0)
@@ -323,123 +478,189 @@ class HistoryTimelapse:
                         bodies = entity.bodies
                         for body in bodies:
                             alphaComponents.append(body)
-            # if classname == 'OffsetFacesFeature': # TODO: unable to get extent parameter from this operation.
-            if classname == 'Move':
-                # TODO: implement this.
-                continue
-            if classname == 'RevolveFeature':
-                if self.isNumericExtent(entity.extentDefinition):
-                    param = entity.extentDefinition.angle
-                    interpolatedParameters.append(param)
-                    stepSizes.append(param.value / interpolationFrames)
-                    # ui.messageBox(str(param.value / interpolationFrames))
-                    stepOffsets.append(0)
-            # if classname == 'FilletFeature' or classname == 'ChamferFeature': # TODO: unable to get extent parameter from this operation.
-            if classname == 'Joint':
-                # This usually happens after occurrence, fade in the component.
-                # Need to break link first so that opacity changes aren't
-                # applied to all linked components - this is irreversible.
-                # TODO: If the occurrence is not the top level component of the linked component, this may throw an error.
-                if entity.occurrenceOne:
+                    if entity.hasTwoExtents:
+                        # Handle side 2.
+                        if self.isNumericExtent(entity.extentTwo):
+                            param = entity.extentTwo.distance
+                            interpolatedParameters.append(param)
+                            stepSizes.append(param.value / interpolationFrames)
+                            stepOffsets.append(0)
+                        # At the very least we can fade it in if it's a new body/component.
+                        elif entity.operation == 3 or entity.operation == 4: # NewBodyFeatureOperation or NewComponentFeatureOperation.
+                            bodies = entity.bodies
+                            for body in bodies:
+                                alphaComponents.append(body)
+                # if classname == 'OffsetFacesFeature': # TODO: unable to get extent parameter from this operation.
+                if classname == 'Move':
+                    # TODO: implement this.
+                    continue
+                if classname == 'RevolveFeature':
+                    if self.isNumericExtent(entity.extentDefinition):
+                        param = entity.extentDefinition.angle
+                        interpolatedParameters.append(param)
+                        stepSizes.append(param.value / interpolationFrames)
+                        # ui.messageBox(str(param.value / interpolationFrames))
+                        stepOffsets.append(0)
+                # if classname == 'FilletFeature' or classname == 'ChamferFeature': # TODO: unable to get extent parameter from this operation.
+                if classname == 'Joint':
+                    # This usually happens after occurrence, fade in the component.
+                    # Need to break link first so that opacity changes aren't
+                    # applied to all linked components - this is irreversible.
+                    # TODO: If the occurrence is not the top level component of the linked component, this may throw an error.
+                    if entity.occurrenceOne:
+                        try:
+                            if entity.occurrenceOne.isReferencedComponent:
+                                entity.occurrenceOne.breakLink()
+                        except:
+                            pass
+                        alphaComponents.append(entity.occurrenceOne.component)
+                if classname == 'Occurrence':
                     try:
-                        if entity.occurrenceOne.isReferencedComponent:
-                            entity.occurrenceOne.breakLink()
+                        if entity.isReferencedComponent:
+                            entity.breakLink()
                     except:
                         pass
-                    alphaComponents.append(entity.occurrenceOne.component)
-            if classname == 'Occurrence':
+                    alphaComponents.append(entity.component)
+                if classname == 'RectangularPatternFeature':
+                    if entity.quantityOne:
+                        param = entity.quantityOne
+                        if param.value != 1:
+                            interpolatedParameters.append(param)
+                            stepSize = int(param.value / interpolationFrames)
+                            if stepSize < 1:
+                                stepSize = 1
+                            stepSizes.append(stepSize)
+                            stepOffsets.append(0)
+                            if entity.distanceOne:
+                                dist = entity.distanceOne
+                                interpolatedParameters.append(dist)
+                                distStepSize = dist.value / (param.value - 1)
+                                # ui.messageBox(str(distStepSize))
+                                stepSizes.append(distStepSize * stepSize)
+                                stepOffsets.append(-distStepSize)
+                    if entity.quantityTwo:
+                        param = entity.quantityTwo
+                        if param.value != 1:
+                            interpolatedParameters.append(param)
+                            stepSize = int(param.value / interpolationFrames)
+                            stepSizes.append(stepSize)
+                            stepOffsets.append(0)
+                            if entity.distanceTwo:
+                                dist = entity.distanceTwo
+                                interpolatedParameters.append(dist)
+                                distStepSize = dist.value / (param.value - 1)
+                                stepSizes.append(distStepSize * stepSize)
+                                stepOffsets.append(-distStepSize)
+                # Save original values and expressions.
+                originalValues = [param.value for param in interpolatedParameters]
+                originalExpressions = [param.expression for param in interpolatedParameters]
+                originalAlphas = [comp.opacity for comp in alphaComponents]
+                # Calc number of interpolation frames for this feature.
+                _interpolationFrames = interpolationFrames if (i < end - 1) else (interpolationFrames + finalFrames)
+                # Colin Holloway | 2026-10-27: Protect each feature's
+                # temporary parameter/opacity changes with finally, including
+                # when cancellation occurs during frame export.
                 try:
-                    if entity.isReferencedComponent:
-                        entity.breakLink()
-                except:
-                    pass
-                alphaComponents.append(entity.component)
-            if classname == 'RectangularPatternFeature':
-                if entity.quantityOne:
-                    param = entity.quantityOne
-                    if param.value != 1:
-                        interpolatedParameters.append(param)
-                        stepSize = int(param.value / interpolationFrames)
-                        if stepSize < 1:
-                            stepSize = 1
-                        stepSizes.append(stepSize)
-                        stepOffsets.append(0)
-                        if entity.distanceOne:
-                            dist = entity.distanceOne
-                            interpolatedParameters.append(dist)
-                            distStepSize = dist.value / (param.value - 1)
-                            # ui.messageBox(str(distStepSize))
-                            stepSizes.append(distStepSize * stepSize)
-                            stepOffsets.append(-distStepSize)
-                if entity.quantityTwo:
-                    param = entity.quantityTwo
-                    if param.value != 1:
-                        interpolatedParameters.append(param)
-                        stepSize = int(param.value / interpolationFrames)
-                        stepSizes.append(stepSize)
-                        stepOffsets.append(0)
-                        if entity.distanceTwo:
-                            dist = entity.distanceTwo
-                            interpolatedParameters.append(dist)
-                            distStepSize = dist.value / (param.value - 1)
-                            stepSizes.append(distStepSize * stepSize)
-                            stepOffsets.append(-distStepSize)
-            # Save original values and expressions.
-            originalValues = [param.value for param in interpolatedParameters]
-            originalExpressions = [param.expression for param in interpolatedParameters]
-            originalAlphas = [comp.opacity for comp in alphaComponents]
-            # Calc number of interpolation frames for this feature.
-            _interpolationFrames = interpolationFrames if (i < end - 1) else (interpolationFrames + finalFrames)
-            for j in range(_interpolationFrames):
-                # Interpolate parameters.
-                for k in range(len(interpolatedParameters)):
-                    value = stepSizes[k] * (j + 1) + stepOffsets[k]
-                    if abs(value) > abs(originalValues[k]):
-                        value = originalValues[k]
-                    # ui.messageBox(str(value))
-                    interpolatedParameters[k].value = value
-                    # Force a recompute (needed for symmetric Revolves for some reason?).
-                    if classname == 'RevolveFeature':
-                        entity.extentDefinition.isSymmetric = entity.extentDefinition.isSymmetric
-                for k in range(len(alphaComponents)):
-                    value = originalAlphas[k] * (j + 1) / interpolationFrames
-                    if abs(value) > abs(originalAlphas[k]):
-                        value = originalAlphas[k]
-                    # ui.messageBox(str(value))
-                    alphaComponents[k].opacity = value
+                    for j in range(_interpolationFrames):
+                        # Interpolate parameters.
+                        adsk.doEvents()
+                        if progress and progress.wasCancelled:
+                            raise AnimationCancelled()
+                        for k in range(len(interpolatedParameters)):
+                            value = stepSizes[k] * (j + 1) + stepOffsets[k]
+                            if abs(value) > abs(originalValues[k]):
+                                value = originalValues[k]
+                            # ui.messageBox(str(value))
+                            interpolatedParameters[k].value = value
+                            # Force a recompute (needed for symmetric Revolves for some reason?).
+                            if classname == 'RevolveFeature':
+                                entity.extentDefinition.isSymmetric = entity.extentDefinition.isSymmetric
+                        for k in range(len(alphaComponents)):
+                            value = originalAlphas[k] * (j + 1) / interpolationFrames
+                            if abs(value) > abs(originalAlphas[k]):
+                                value = originalAlphas[k]
+                            # ui.messageBox(str(value))
+                            alphaComponents[k].opacity = value
 
-                # Rotate camera around y axis.
-                if framesPerRotation > 0:
-                    angle = math.pi * 2.0 / framesPerRotation
-                    camera = viewport.camera
-                    eye = camera.eye
-                    cos = math.cos(angle)
-                    sin = math.sin(angle)
-                    camera.eye = adsk.core.Point3D.create(eye.x * cos + eye.z * sin, eye.y, - eye.x * sin + eye.z * cos)
-                    # Set camera property to trigger update.
-                    viewport.camera = camera
+                        # Colin Holloway | 2026-10-26: Orbit around selected global axis and camera target.
+                        # Orbit the camera around the selected global axis, through
+                        # the camera target. Rotate the up vector as well so the
+                        # camera orientation remains valid for X, Y and Z orbits.
+                        # Colin Holloway | 2026-10-26: Rotate only during modelling frames.
+                        # Final frames hold the last camera orientation without further rotation.
+                        if anglePerFrame > 0 and j < interpolationFrames:
+                            # Colin Holloway | 2026-10-26: Clockwise is negative
+                            # about the positive global axis (viewed toward the origin).
+                            angle = anglePerFrame * (-1.0 if self.rotationDirection == 'Clockwise' else 1.0)
+                            camera = viewport.camera
+                            target = camera.target
+                            eye = camera.eye
+                            up = camera.upVector
+                            axis = self.rotationAxis
+                            c = math.cos(angle)
+                            s = math.sin(angle)
 
-                # Save image.
-                outputFilename = outputPath + 'History_Animation_' + filename + '/' + filename + '_' + str(num)
-                success = app.activeViewport.saveAsImageFile(outputFilename + '.png', width, height)
-                if not success:
-                    ui.messageBox('Failed saving viewport image.')
+                            def rotateVector(x, y, z):
+                                # Rodrigues' formula for a principal Cartesian axis.
+                                if axis == 'X':
+                                    return (x, y * c - z * s, y * s + z * c)
+                                if axis == 'Y':
+                                    return (x * c + z * s, y, -x * s + z * c)
+                                return (x * c - y * s, x * s + y * c, z)
+
+                            dx, dy, dz = rotateVector(
+                                eye.x - target.x, eye.y - target.y, eye.z - target.z)
+                            ux, uy, uz = rotateVector(up.x, up.y, up.z)
+                            camera.eye = adsk.core.Point3D.create(
+                                target.x + dx, target.y + dy, target.z + dz)
+                            camera.upVector = adsk.core.Vector3D.create(ux, uy, uz)
+                            viewport.camera = camera
+
+                        # Save image.
+                        # Colin Holloway | 2026-10-26: Join image/OBJ paths safely without requiring a trailing slash.
+                        outputFilename = os.path.join(outputFolder, filename + '_' + str(num))
+                        success = app.activeViewport.saveAsImageFile(outputFilename + '.png', width, height)
+                        if not success:
+                            ui.messageBox('Failed saving viewport image.')
                 
-                # Save obj file if requested
-                if saveObj:
-                    success = self.saveObjFile(outputFilename + '.obj')
-                    if not success:
-                        ui.messageBox('Failed saving obj file.')
+                        # Save obj file if requested
+                        if saveObj:
+                            success = self.saveObjFile(outputFilename + '.obj')
+                            if not success:
+                                ui.messageBox('Failed saving obj file.')
 
-                num += 1
+                        num += 1
+                        if progress:
+                            progress.progressValue = num
 
-            # Reset parameters.
-            for k in range(len(interpolatedParameters)):
-                interpolatedParameters[k].value = originalValues[k]
-                interpolatedParameters[k].expression = originalExpressions[k]
-            for k in range(len(alphaComponents)):
-                alphaComponents[k].opacity = originalAlphas[k]
-    
+                finally:
+                    # Reset parameters.
+                    for k in range(len(interpolatedParameters)):
+                        interpolatedParameters[k].value = originalValues[k]
+                        interpolatedParameters[k].expression = originalExpressions[k]
+                    for k in range(len(alphaComponents)):
+                        alphaComponents[k].opacity = originalAlphas[k]
+            return True
+        except AnimationCancelled:
+            return False
+        finally:
+            # Colin Holloway | 2026-10-27: Close progress and restore
+            # the original camera and timeline marker on every exit path.
+            try:
+                if progress:
+                    progress.hide()
+            finally:
+                try:
+                    restoredCamera = viewport.camera
+                    restoredCamera.eye = adsk.core.Point3D.create(*initialEye)
+                    restoredCamera.target = adsk.core.Point3D.create(*initialTarget)
+                    restoredCamera.upVector = adsk.core.Vector3D.create(*initialUp)
+                    restoredCamera.viewExtents = initialExtents
+                    restoredCamera.cameraType = initialCameraType
+                    viewport.camera = restoredCamera
+                finally:
+                    timeline.markerPosition = initialMarkerPosition
+
     def saveObjFile(self, file):
         '''Export an .obj file from the root component'''
         try:
@@ -507,6 +728,9 @@ def run(context):
         if not design:
             ui.messageBox('Script is not supported in current workspace, please change to MODEL workspace and try again.')
             return
+        # Colin Holloway | 2026-10-26: Expand collapsed timeline
+        # groups before initializing the dialog so every feature gets a step.
+        expandTimelineGroups(design.timeline)
         # Init a timelapse object.
         if timelapse == None:
             timelapse = HistoryTimelapse(design)
@@ -530,5 +754,11 @@ def run(context):
         adsk.autoTerminate(False)
 
     except:
+        # Colin Holloway | 2026-10-26: Undo group expansion if
+        # command setup fails before the destroy event can restore the groups.
+        try:
+            restoreTimelineGroups()
+        except:
+            pass
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
